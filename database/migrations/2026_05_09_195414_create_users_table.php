@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('store_id')->constrained('stores')->onDelete('cascade');
             $table->string('name');
             $table->string('username', 100)->unique();
+            $table->string('email')->unique()->nullable(); // <--- Tambahkan baris ini
             $table->string('password');
             $table->enum('role', ['owner', 'cashier']);
             $table->rememberToken();

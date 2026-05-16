@@ -21,6 +21,7 @@ class User extends Authenticatable
         'store_id', // Ditambahkan untuk arsitektur multi-tenant
         'name',
         'username', // Menggantikan email
+        'email',    // Menambahkan kolom email
         'password',
         'role',     // Ditambahkan untuk membedakan owner/cashier
     ];
