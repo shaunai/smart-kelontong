@@ -17,7 +17,7 @@
 </head>
 <body class="font-sans antialiased text-gray-900 flex h-screen overflow-hidden bg-gray-100">
 
-    <aside class="w-64 bg-white shadow-md flex flex-col justify-between hidden md:flex z-10">
+    <aside class="w-64 bg-white shadow-md hidden md:flex flex-col justify-between z-10">
         <div>
             <div class="h-20 flex items-center px-6 border-b border-gray-100">
                 <img src="{{ asset('images/logo.jpeg') }}" alt="Logo" class="w-10 h-10 rounded-md mr-3" onerror="this.src='https://via.placeholder.com/40'">
