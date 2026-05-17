@@ -51,24 +51,42 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 3. SEED DATA SUPPLIER
-        $supplier = Supplier::create([
+        $supplierSembako = Supplier::create([
             'store_id' => $store->id,
             'name' => 'PT. Distribusi Sembako Nusantara',
             'phone' => '089988887777',
             'address' => 'Kawasan Industri Rungkut, Surabaya',
         ]);
 
-        // 4. SEED DATA PRODUK (PRODUCT)
+        $supplierKebersihan = Supplier::create([
+            'store_id' => $store->id,
+            'name' => 'CV. Mandiri Jaya Distribusi',
+            'phone' => '081122334455',
+            'address' => 'Jl. Gajah Mada No. 5, Semarang',
+        ]);
+
+        // 4 & 5. SEED DATA PRODUK + BATCH
+        // ── AMAN: total_stock >= 2x min_stock ──────────────────────────────
+
+        // Indomie Goreng Dus (min=5, stok=12 → aman)
         $productParent = Product::create([
             'store_id' => $store->id,
-            'parent_id' => null,
             'sku' => 'BRG-MIE-001',
-            'name' => 'Indomie Goreng Spasial (1 Dus)',
+            'name' => 'Indomie Goreng Spesial (1 Dus)',
             'unit' => 'Dus',
             'conversion_qty' => 40,
             'min_stock' => 5,
         ]);
+        ProductBatch::create([
+            'product_id' => $productParent->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 110000,
+            'selling_price' => 125000,
+            'stock' => 12,
+            'expiry_date' => Carbon::now()->addMonths(8),
+        ]);
 
+        // Indomie Eceran (min=20, stok=80 → aman)
         $productRetail = Product::create([
             'store_id' => $store->id,
             'parent_id' => $productParent->id,
@@ -78,24 +96,179 @@ class DatabaseSeeder extends Seeder
             'conversion_qty' => 1,
             'min_stock' => 20,
         ]);
-
-        // 5. SEED DATA BATCH PRODUK (PRODUCT BATCH)
         ProductBatch::create([
-            'product_id' => $productParent->id,
-            'supplier_id' => $supplier->id,
-            'purchase_price' => 110000,
-            'selling_price' => 125000,
-            'stock' => 10,
+            'product_id' => $productRetail->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 2750,
+            'selling_price' => 3500,
+            'stock' => 80,
+            'expiry_date' => Carbon::now()->addMonths(8),
+        ]);
+
+        // Beras Premium 5kg (min=5, stok=18 → aman)
+        $beras = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-BRS-001',
+            'name' => 'Beras Premium 5kg',
+            'unit' => 'Karung',
+            'conversion_qty' => 1,
+            'min_stock' => 5,
+        ]);
+        ProductBatch::create([
+            'product_id' => $beras->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 65000,
+            'selling_price' => 72000,
+            'stock' => 18,
+            'expiry_date' => Carbon::now()->addMonths(6),
+        ]);
+
+        // Gula Pasir 1kg (min=10, stok=35 → aman)
+        $gula = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-GLA-001',
+            'name' => 'Gula Pasir 1kg',
+            'unit' => 'Kg',
+            'conversion_qty' => 1,
+            'min_stock' => 10,
+        ]);
+        ProductBatch::create([
+            'product_id' => $gula->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 13000,
+            'selling_price' => 15000,
+            'stock' => 35,
             'expiry_date' => Carbon::now()->addYear(),
         ]);
 
+        // Detergen Rinso 800gr (min=8, stok=20 → aman)
+        $rinso = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-DET-001',
+            'name' => 'Detergen Rinso 800gr',
+            'unit' => 'Pcs',
+            'conversion_qty' => 1,
+            'min_stock' => 8,
+        ]);
         ProductBatch::create([
-            'product_id' => $productRetail->id,
-            'supplier_id' => $supplier->id,
-            'purchase_price' => 2750,
-            'selling_price' => 3500,
-            'stock' => 50,
+            'product_id' => $rinso->id,
+            'supplier_id' => $supplierKebersihan->id,
+            'purchase_price' => 18500,
+            'selling_price' => 22000,
+            'stock' => 20,
             'expiry_date' => Carbon::now()->addYear(),
+        ]);
+
+        // ── MENDEKATI (kuning): min_stock <= total_stock < 2x min_stock ────
+
+        // Minyak Goreng Tropical 1L (min=15, stok=22 → kuning: 22 < 30)
+        $minyak = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-MYK-001',
+            'name' => 'Minyak Goreng Tropical 1L',
+            'unit' => 'Botol',
+            'conversion_qty' => 1,
+            'min_stock' => 15,
+        ]);
+        ProductBatch::create([
+            'product_id' => $minyak->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 17000,
+            'selling_price' => 20000,
+            'stock' => 22,
+            'expiry_date' => Carbon::now()->addMonths(10),
+        ]);
+
+        // Kecap Manis ABC 135ml (min=8, stok=14 → kuning: 14 < 16)
+        $kecap = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-KCP-001',
+            'name' => 'Kecap Manis ABC 135ml',
+            'unit' => 'Botol',
+            'conversion_qty' => 1,
+            'min_stock' => 8,
+        ]);
+        ProductBatch::create([
+            'product_id' => $kecap->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 5500,
+            'selling_price' => 7000,
+            'stock' => 14,
+            'expiry_date' => Carbon::now()->addMonths(12),
+        ]);
+
+        // Shampoo Sunsilk 170ml (min=12, stok=18 → kuning: 18 < 24)
+        $shampoo = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-SHP-001',
+            'name' => 'Shampoo Sunsilk 170ml',
+            'unit' => 'Botol',
+            'conversion_qty' => 1,
+            'min_stock' => 12,
+        ]);
+        ProductBatch::create([
+            'product_id' => $shampoo->id,
+            'supplier_id' => $supplierKebersihan->id,
+            'purchase_price' => 12000,
+            'selling_price' => 15000,
+            'stock' => 18,
+            'expiry_date' => Carbon::now()->addYear(),
+        ]);
+
+        // ── KRITIS (merah): total_stock < min_stock ─────────────────────────
+
+        // Sabun Mandi Lifebuoy (min=10, stok=7 → merah)
+        $sabun = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-SBN-001',
+            'name' => 'Sabun Mandi Lifebuoy 85gr',
+            'unit' => 'Pcs',
+            'conversion_qty' => 1,
+            'min_stock' => 10,
+        ]);
+        ProductBatch::create([
+            'product_id' => $sabun->id,
+            'supplier_id' => $supplierKebersihan->id,
+            'purchase_price' => 3500,
+            'selling_price' => 5000,
+            'stock' => 7,
+            'expiry_date' => Carbon::now()->addYear(),
+        ]);
+
+        // Sambal ABC Botol 135ml (min=6, stok=3 → merah)
+        $sambal = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-SMB-001',
+            'name' => 'Sambal ABC Botol 135ml',
+            'unit' => 'Botol',
+            'conversion_qty' => 1,
+            'min_stock' => 6,
+        ]);
+        ProductBatch::create([
+            'product_id' => $sambal->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 8000,
+            'selling_price' => 10500,
+            'stock' => 3,
+            'expiry_date' => Carbon::now()->addMonths(9),
+        ]);
+
+        // Teh Celup Sosro 25-bag (min=10, stok=4 → merah)
+        $teh = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-TEH-001',
+            'name' => 'Teh Celup Sosro 25-bag',
+            'unit' => 'Kotak',
+            'conversion_qty' => 1,
+            'min_stock' => 10,
+        ]);
+        ProductBatch::create([
+            'product_id' => $teh->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 9500,
+            'selling_price' => 12000,
+            'stock' => 4,
+            'expiry_date' => Carbon::now()->addMonths(11),
         ]);
 
         // 6. SEED DATA PELANGGAN (CUSTOMER)

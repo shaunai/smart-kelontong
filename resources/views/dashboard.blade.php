@@ -20,7 +20,7 @@
                 <span class="text-sm font-semibold text-teal-500">+2.4%</span>
             </div>
             <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Total Stok</p>
-            <h3 class="text-3xl font-bold text-gray-900">1230</h3>
+            <h3 class="text-3xl font-bold text-gray-900">{{ $totalStock }}</h3>
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
@@ -53,7 +53,7 @@
                 <span class="text-sm font-semibold text-teal-500">Action Req</span>
             </div>
             <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Produk Hampir Habis</p>
-            <h3 class="text-3xl font-bold text-gray-900">3</h3>
+            <h3 class="text-3xl font-bold text-gray-900">{{ $criticalCount }}</h3>
         </div>
     </div>
 
@@ -75,30 +75,29 @@
                 <p class="text-sm text-gray-500">Segera lakukan restock produk ini</p>
             </div>
 
-            <div class="space-y-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-900">Indomie Goreng</h4>
-                        <p class="text-xs text-gray-500">Sembako</p>
+            <div class="space-y-4">
+                @forelse ($stockAlerts as $product)
+                    @php
+                        $isCritical = $product->total_stock < $product->min_stock;
+                    @endphp
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-900">{{ $product->name }}</h4>
+                            <p class="text-xs text-gray-500">Stok: {{ $product->total_stock }} {{ $product->unit }} &bull; Min: {{ $product->min_stock }}</p>
+                        </div>
+                        @if ($isCritical)
+                            <span class="px-3 py-1 bg-red-100 text-red-600 text-xs font-semibold rounded-md whitespace-nowrap">
+                                Restock: {{ $product->name }}
+                            </span>
+                        @else
+                            <span class="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-md whitespace-nowrap">
+                                Hampir Habis
+                            </span>
+                        @endif
                     </div>
-                    <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-md">1 Kardus</span>
-                </div>
-                
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-900">Sabun Lifebouy</h4>
-                        <p class="text-xs text-gray-500">Kebersihan</p>
-                    </div>
-                    <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-md">10 Pcs</span>
-                </div>
-
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-900">Minyak Goreng</h4>
-                        <p class="text-xs text-gray-500">Sembako</p>
-                    </div>
-                    <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-md">10 Botol 1 L</span>
-                </div>
+                @empty
+                    <p class="text-sm text-gray-400 text-center py-4">Semua stok dalam kondisi aman.</p>
+                @endforelse
             </div>
         </div>
 
