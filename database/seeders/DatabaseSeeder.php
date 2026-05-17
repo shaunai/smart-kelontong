@@ -376,6 +376,14 @@ class DatabaseSeeder extends Seeder
             'status' => 'unpaid', // Sesuai ENUM ['unpaid', 'partial', 'paid']
         ]);
 
+        SaleDetail::create([
+            'sale_id'       => $saleDebt->id,
+            'product_id'    => $sabun->id,
+            'quantity'      => 10,
+            'price_at_sale' => 5000,
+            'subtotal'      => 50000,
+        ]);
+
         // 9. SEED DATA ALUR KAS (CASH FLOW)
         CashFlow::create([
             'store_id' => $store->id,
@@ -395,5 +403,49 @@ class DatabaseSeeder extends Seeder
             'status' => 'sent',
             'fonte_id' => 'FONTE-12345678',
         ]);
+
+        // 11. TRANSAKSI TAMBAHAN (total 5 transaksi)
+
+        // INV-0003: Gula Pasir + Kecap Manis — Tunai
+        $sale3 = Sale::create([
+            'store_id'       => $store->id,
+            'user_id'        => $cashier->id,
+            'invoice_number' => 'INV-' . Carbon::now()->format('Ymd') . '-0003',
+            'total_price'    => 44000,
+            'payment_method' => 'cash',
+            'payment_status' => 'paid',
+        ]);
+        SaleDetail::create(['sale_id' => $sale3->id, 'product_id' => $gula->id,  'quantity' => 2, 'price_at_sale' => 15000, 'subtotal' => 30000]);
+        SaleDetail::create(['sale_id' => $sale3->id, 'product_id' => $kecap->id, 'quantity' => 2, 'price_at_sale' => 7000,  'subtotal' => 14000]);
+        CashFlow::create(['store_id' => $store->id, 'type' => 'in', 'category' => 'Penjualan', 'amount' => 44000,
+            'description' => 'Penjualan INV-' . Carbon::now()->format('Ymd') . '-0003', 'reference_id' => $sale3->id]);
+
+        // INV-0004: Minyak Goreng + Rinso + Sambal — QRIS
+        $sale4 = Sale::create([
+            'store_id'       => $store->id,
+            'user_id'        => $cashier->id,
+            'invoice_number' => 'INV-' . Carbon::now()->format('Ymd') . '-0004',
+            'total_price'    => 52500,
+            'payment_method' => 'qris',
+            'payment_status' => 'paid',
+        ]);
+        SaleDetail::create(['sale_id' => $sale4->id, 'product_id' => $minyak->id, 'quantity' => 1, 'price_at_sale' => 20000, 'subtotal' => 20000]);
+        SaleDetail::create(['sale_id' => $sale4->id, 'product_id' => $rinso->id,  'quantity' => 1, 'price_at_sale' => 22000, 'subtotal' => 22000]);
+        SaleDetail::create(['sale_id' => $sale4->id, 'product_id' => $sambal->id, 'quantity' => 1, 'price_at_sale' => 10500, 'subtotal' => 10500]);
+        CashFlow::create(['store_id' => $store->id, 'type' => 'in', 'category' => 'Penjualan', 'amount' => 52500,
+            'description' => 'Penjualan INV-' . Carbon::now()->format('Ymd') . '-0004', 'reference_id' => $sale4->id]);
+
+        // INV-0005: Rokok Tidak Sempoerna Satuan — Transfer Bank
+        $sale5 = Sale::create([
+            'store_id'       => $store->id,
+            'user_id'        => $owner->id,
+            'invoice_number' => 'INV-' . Carbon::now()->format('Ymd') . '-0005',
+            'total_price'    => 76000,
+            'payment_method' => 'transfer',
+            'payment_status' => 'paid',
+        ]);
+        SaleDetail::create(['sale_id' => $sale5->id, 'product_id' => $rokokSatuan->id, 'quantity' => 2, 'price_at_sale' => 38000, 'subtotal' => 76000]);
+        CashFlow::create(['store_id' => $store->id, 'type' => 'in', 'category' => 'Penjualan', 'amount' => 76000,
+            'description' => 'Penjualan INV-' . Carbon::now()->format('Ymd') . '-0005', 'reference_id' => $sale5->id]);
     }
 }

@@ -23,7 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::resource('produk', ProductController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
+    Route::resource('transaksi', TransaksiController::class)->only(['index', 'store', 'destroy']);
     Route::resource('stok', StokController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/supplier', [SupplierController::class, 'index'])->name('supplier.index');
