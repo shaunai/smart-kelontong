@@ -11,39 +11,38 @@ class StokController extends Controller
 {
     public function index(Request $request)
     {
-        $storeId    = auth()->user()->store_id;
-        $productIds = Product::where('store_id', $storeId)->pluck('id');
+        $storeId = auth()->user()->store_id;
 
-        $batches = ProductBatch::whereIn('product_id', $productIds)
-            ->with(['product', 'supplier'])
+        // Tabel utama: produk dengan total stok teragregasi
+        $products = Product::where('store_id', $storeId)
+            ->withSum('batches', 'stock')
             ->when($request->filled('search'), fn ($q) =>
-                $q->whereHas('product', fn ($q2) =>
-                    $q2->where('name', 'like', "%{$request->search}%")
-                )
+                $q->where('name', 'like', "%{$request->search}%")
             )
-            ->orderByDesc('created_at')
-            ->paginate(10)
+            ->orderBy('name')
+            ->paginate(15)
             ->withQueryString();
 
-        $totalStok = ProductBatch::whereIn('product_id', $productIds)->sum('stock');
-
-        $productStoks = Product::where('store_id', $storeId)
+        // Stats kartu (dari semua produk tanpa pagination)
+        $allStats = Product::where('store_id', $storeId)
             ->withSum('batches', 'stock')
             ->get();
 
-        $menipis = $productStoks->filter(fn ($p) =>
+        $totalStok = $allStats->sum(fn ($p) => $p->batches_sum_stock ?? 0);
+
+        $menipis = $allStats->filter(fn ($p) =>
             ($p->batches_sum_stock ?? 0) > 0 && ($p->batches_sum_stock ?? 0) <= $p->min_stock
         )->count();
 
-        $habis = $productStoks->filter(fn ($p) =>
+        $habis = $allStats->filter(fn ($p) =>
             ($p->batches_sum_stock ?? 0) == 0
         )->count();
 
-        $products  = Product::where('store_id', $storeId)->orderBy('name')->get();
-        $suppliers = Supplier::where('store_id', $storeId)->orderBy('name')->get();
+        $productsList = Product::where('store_id', $storeId)->orderBy('name')->get();
+        $suppliers    = Supplier::where('store_id', $storeId)->orderBy('name')->get();
 
         return view('stok.index', compact(
-            'batches', 'totalStok', 'menipis', 'habis', 'products', 'suppliers'
+            'products', 'totalStok', 'menipis', 'habis', 'productsList', 'suppliers'
         ));
     }
 

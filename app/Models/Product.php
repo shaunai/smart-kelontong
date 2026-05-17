@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Product extends Model
 {
     protected $fillable = [
-        'store_id', 'parent_id', 'sku', 'name', 
-        'unit', 'conversion_qty', 'min_stock'
+        'store_id', 'parent_id', 'sku', 'category', 'name',
+        'unit', 'conversion_qty', 'min_stock',
     ];
 
     public function store() { return $this->belongsTo(Store::class); }

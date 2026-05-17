@@ -12,12 +12,16 @@ class ProductController extends Controller
         $storeId = auth()->user()->store_id;
 
         $products = Product::where('store_id', $storeId)
-            ->with('parent')
+            ->with(['parent', 'batches' => fn ($q) => $q->with('supplier')->latest()])
+            ->withSum('batches', 'stock')
             ->when($request->filled('search'), fn ($q) =>
                 $q->where(fn ($q2) =>
                     $q2->where('name', 'like', "%{$request->search}%")
                        ->orWhere('sku', 'like', "%{$request->search}%")
                 )
+            )
+            ->when($request->filled('category'), fn ($q) =>
+                $q->where('category', $request->category)
             )
             ->orderBy('name')
             ->paginate(10)
@@ -28,13 +32,20 @@ class ProductController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('produk.index', compact('products', 'parentProducts'));
+        $categories = Product::where('store_id', $storeId)
+            ->whereNotNull('category')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category');
+
+        return view('produk.index', compact('products', 'parentProducts', 'categories'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'sku'            => 'nullable|string|max:100',
+            'category'       => 'nullable|string|max:100',
             'name'           => 'required|string|max:255',
             'unit'           => 'required|string|max:50',
             'conversion_qty' => 'required|integer|min:1',
@@ -53,6 +64,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'sku'            => 'nullable|string|max:100',
+            'category'       => 'nullable|string|max:100',
             'name'           => 'required|string|max:255',
             'unit'           => 'required|string|max:50',
             'conversion_qty' => 'required|integer|min:1',

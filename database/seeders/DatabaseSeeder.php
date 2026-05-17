@@ -72,6 +72,7 @@ class DatabaseSeeder extends Seeder
         $productParent = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-MIE-001',
+            'category' => 'Makanan',
             'name' => 'Indomie Goreng Spesial (1 Dus)',
             'unit' => 'Dus',
             'conversion_qty' => 40,
@@ -91,6 +92,7 @@ class DatabaseSeeder extends Seeder
             'store_id' => $store->id,
             'parent_id' => $productParent->id,
             'sku' => 'BRG-MIE-001-PCS',
+            'category' => 'Makanan',
             'name' => 'Indomie Goreng Spesial (Eceran)',
             'unit' => 'Pcs',
             'conversion_qty' => 1,
@@ -109,6 +111,7 @@ class DatabaseSeeder extends Seeder
         $beras = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-BRS-001',
+            'category' => 'Makanan',
             'name' => 'Beras Premium 5kg',
             'unit' => 'Karung',
             'conversion_qty' => 1,
@@ -127,6 +130,7 @@ class DatabaseSeeder extends Seeder
         $gula = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-GLA-001',
+            'category' => 'Makanan',
             'name' => 'Gula Pasir 1kg',
             'unit' => 'Kg',
             'conversion_qty' => 1,
@@ -145,6 +149,7 @@ class DatabaseSeeder extends Seeder
         $rinso = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-DET-001',
+            'category' => 'Kebutuhan Rumah',
             'name' => 'Detergen Rinso 800gr',
             'unit' => 'Pcs',
             'conversion_qty' => 1,
@@ -165,6 +170,7 @@ class DatabaseSeeder extends Seeder
         $minyak = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-MYK-001',
+            'category' => 'Makanan',
             'name' => 'Minyak Goreng Tropical 1L',
             'unit' => 'Botol',
             'conversion_qty' => 1,
@@ -183,6 +189,7 @@ class DatabaseSeeder extends Seeder
         $kecap = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-KCP-001',
+            'category' => 'Makanan',
             'name' => 'Kecap Manis ABC 135ml',
             'unit' => 'Botol',
             'conversion_qty' => 1,
@@ -201,6 +208,7 @@ class DatabaseSeeder extends Seeder
         $shampoo = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-SHP-001',
+            'category' => 'Kebutuhan Rumah',
             'name' => 'Shampoo Sunsilk 170ml',
             'unit' => 'Botol',
             'conversion_qty' => 1,
@@ -221,6 +229,7 @@ class DatabaseSeeder extends Seeder
         $sabun = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-SBN-001',
+            'category' => 'Kebutuhan Rumah',
             'name' => 'Sabun Mandi Lifebuoy 85gr',
             'unit' => 'Pcs',
             'conversion_qty' => 1,
@@ -239,6 +248,7 @@ class DatabaseSeeder extends Seeder
         $sambal = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-SMB-001',
+            'category' => 'Makanan',
             'name' => 'Sambal ABC Botol 135ml',
             'unit' => 'Botol',
             'conversion_qty' => 1,
@@ -257,6 +267,7 @@ class DatabaseSeeder extends Seeder
         $teh = Product::create([
             'store_id' => $store->id,
             'sku' => 'BRG-TEH-001',
+            'category' => 'Minuman',
             'name' => 'Teh Celup Sosro 25-bag',
             'unit' => 'Kotak',
             'conversion_qty' => 1,
@@ -269,6 +280,46 @@ class DatabaseSeeder extends Seeder
             'selling_price' => 12000,
             'stock' => 4,
             'expiry_date' => Carbon::now()->addMonths(11),
+        ]);
+
+        // ── ROKOK ─────────────────────────────────────────────────────────────
+
+        // Rokok Tidak Sempoerna Satuan (min=5, stok=20 → aman)
+        $rokokSatuan = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-RKK-001',
+            'category' => 'Rokok',
+            'name' => 'Rokok Tidak Sempoerna Satuan',
+            'unit' => 'Pack',
+            'conversion_qty' => 1,
+            'min_stock' => 5,
+        ]);
+        ProductBatch::create([
+            'product_id' => $rokokSatuan->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 33000,
+            'selling_price' => 38000,
+            'stock' => 20,
+            'expiry_date' => Carbon::now()->addMonths(6),
+        ]);
+
+        // Rokok Tidak Sempoerna Slop (min=1, stok=5 → aman)
+        $rokokSlop = Product::create([
+            'store_id' => $store->id,
+            'sku' => 'BRG-RKK-002',
+            'category' => 'Rokok',
+            'name' => 'Rokok Tidak Sempoerna Slop',
+            'unit' => 'Slop',
+            'conversion_qty' => 10,
+            'min_stock' => 1,
+        ]);
+        ProductBatch::create([
+            'product_id' => $rokokSlop->id,
+            'supplier_id' => $supplierSembako->id,
+            'purchase_price' => 320000,
+            'selling_price' => 350000,
+            'stock' => 5,
+            'expiry_date' => Carbon::now()->addMonths(6),
         ]);
 
         // 6. SEED DATA PELANGGAN (CUSTOMER)

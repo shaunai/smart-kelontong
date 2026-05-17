@@ -8,6 +8,7 @@ use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CashFlowController;
 
 
 Route::get('/', function () {
@@ -26,5 +27,6 @@ Route::middleware('auth')->group(function () {
     Route::resource('stok', StokController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/supplier', [SupplierController::class, 'index'])->name('supplier.index');
+    Route::post('/kas', [CashFlowController::class, 'store'])->name('kas.store');
 });
 require __DIR__.'/auth.php';
