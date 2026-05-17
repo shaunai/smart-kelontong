@@ -112,20 +112,16 @@
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex justify-center">
-                                <form method="POST" action="{{ route('transaksi.destroy', $sale->id) }}"
-                                    onsubmit="return confirm('Hapus transaksi {{ $sale->invoice_number }}?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit"
-                                        class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                        title="Hapus">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                                            </path>
-                                        </svg>
-                                    </button>
-                                </form>
+                                <button type="button"
+                                    @click="openDelete({{ $sale->id }}, '{{ $sale->invoice_number }}')"
+                                    class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                    title="Hapus">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                        </path>
+                                    </svg>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -438,6 +434,9 @@
         return {
             showModal:       false,
             showReceipt:     false,
+            showDeleteModal: false,
+            deleteId:        null,
+            deleteLabel:     '',
             receipt:         null,
             paymentMethod:   'cash',
             paymentStatus:   'paid',
@@ -538,12 +537,46 @@ ${detailsHtml}
                     win.document.close();
                 }
             },
+            openDelete(id, label) {
+                this.deleteId    = id;
+                this.deleteLabel = label;
+                this.showDeleteModal = true;
+            },
             formatRp(val) {
                 return Number(val).toLocaleString('id-ID');
             }
         };
     }
     </script>
+
+    {{-- Delete Confirmation Modal --}}
+    <div x-show="showDeleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" @click="showDeleteModal = false"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 text-center" @click.stop>
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </div>
+            <h3 class="mb-1 text-lg font-bold text-gray-900">Hapus Transaksi?</h3>
+            <p class="mb-1 text-sm font-semibold text-gray-700" x-text="deleteLabel"></p>
+            <p class="mb-6 text-sm text-gray-500">Transaksi yang dihapus tidak dapat dikembalikan.</p>
+            <form method="POST" :action="'/transaksi/' + deleteId">
+                @csrf
+                @method('DELETE')
+                <div class="flex gap-3">
+                    <button type="button" @click="showDeleteModal = false"
+                        class="flex-1 rounded-md border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit"
+                        class="flex-1 rounded-md bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors">
+                        Ya, Hapus
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
 </div>
 </x-app-layout>
