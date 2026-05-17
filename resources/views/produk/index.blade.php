@@ -1,201 +1,355 @@
 <x-app-layout>
-    
+
+<div
+    x-data="{
+        showModal: false,
+        showDeleteModal: false,
+        editMode: false,
+        deleteId: null,
+        form: {
+            id: null,
+            sku: '',
+            name: '',
+            unit: 'pcs',
+            conversion_qty: 1,
+            min_stock: 5,
+            parent_id: ''
+        },
+        openCreate() {
+            this.editMode = false;
+            this.form = { id: null, sku: '', name: '', unit: 'pcs', conversion_qty: 1, min_stock: 5, parent_id: '' };
+            this.showModal = true;
+        },
+        openEdit(product) {
+            this.editMode = true;
+            this.form = { ...product };
+            this.showModal = true;
+        },
+        openDelete(id) {
+            this.deleteId = id;
+            this.showDeleteModal = true;
+        }
+    }"
+    x-init="
+        @if ($errors->any())
+            showModal = true;
+            editMode = {{ old('_edit_id') ? 'true' : 'false' }};
+            form.id = {{ old('_edit_id') ?? 'null' }};
+            form.sku = {{ Js::from(old('sku', '')) }};
+            form.name = {{ Js::from(old('name', '')) }};
+            form.unit = {{ Js::from(old('unit', 'pcs')) }};
+            form.conversion_qty = {{ old('conversion_qty', 1) }};
+            form.min_stock = {{ old('min_stock', 5) }};
+            form.parent_id = {{ Js::from(old('parent_id', '')) }};
+        @endif
+    "
+>
+
+    {{-- Flash Message --}}
+    @if (session('success'))
+        <div class="mb-5 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-5 py-3 text-sm text-green-800">
+            <span>{{ session('success') }}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-green-600 hover:text-green-800 text-lg leading-none">&times;</button>
+        </div>
+    @endif
+
+    {{-- Header --}}
     <div class="flex justify-between items-end mb-6">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Produk</h1>
             <p class="text-gray-500 mt-1 text-sm">Kelola daftar barang dagangan anda</p>
         </div>
-        <button class="bg-[#f97316] hover:bg-[#ea580c] text-white px-5 py-2.5 rounded-md font-medium flex items-center transition-colors shadow-sm text-sm">
+        <button
+            @click="openCreate()"
+            class="bg-[#f97316] hover:bg-[#ea580c] text-white px-5 py-2.5 rounded-md font-medium flex items-center transition-colors shadow-sm text-sm"
+        >
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Tambah Produk
         </button>
     </div>
 
-    <div class="flex space-x-3 mb-6 overflow-x-auto pb-2">
-        <button class="px-6 py-2 bg-[#1a7175] text-white rounded-full text-sm font-medium whitespace-nowrap shadow-sm">
-            Semua
+    {{-- Search --}}
+    <form method="GET" action="{{ route('produk.index') }}" class="mb-6 flex gap-3">
+        <input
+            type="text"
+            name="search"
+            value="{{ request('search') }}"
+            placeholder="Cari nama atau SKU produk..."
+            class="flex-1 rounded-md border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]"
+        >
+        <button type="submit" class="rounded-md bg-[#1a7175] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#145a5e] transition-colors">
+            Cari
         </button>
-        <button class="px-6 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full text-sm font-medium whitespace-nowrap transition-colors shadow-sm">
-            Makanan
-        </button>
-        <button class="px-6 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full text-sm font-medium whitespace-nowrap transition-colors shadow-sm">
-            Minuman
-        </button>
-        <button class="px-6 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full text-sm font-medium whitespace-nowrap transition-colors shadow-sm">
-            Kebutuhan Rumah
-        </button>
-    </div>
+        @if (request('search'))
+            <a href="{{ route('produk.index') }}" class="rounded-md border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                Reset
+            </a>
+        @endif
+    </form>
 
+    {{-- Table --}}
     <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-[#1a7175] text-white text-sm tracking-wide">
+                        <th class="py-4 px-6 font-medium">No</th>
+                        <th class="py-4 px-6 font-medium">SKU</th>
                         <th class="py-4 px-6 font-medium whitespace-nowrap">Nama Produk</th>
-                        <th class="py-4 px-6 font-medium whitespace-nowrap">Kategori</th>
-                        <th class="py-4 px-6 font-medium whitespace-nowrap">Stok</th>
-                        <th class="py-4 px-6 font-medium whitespace-nowrap">Harga Jual</th>
-                        <th class="py-4 px-6 font-medium whitespace-nowrap">Supplier</th>
-                        <th class="py-4 px-6 font-medium whitespace-nowrap">Aksi</th>
+                        <th class="py-4 px-6 font-medium">Satuan</th>
+                        <th class="py-4 px-6 font-medium whitespace-nowrap">Konversi</th>
+                        <th class="py-4 px-6 font-medium whitespace-nowrap">Min Stok</th>
+                        <th class="py-4 px-6 font-medium whitespace-nowrap">Varian Dari</th>
+                        <th class="py-4 px-6 font-medium">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="text-sm text-gray-700">
-                    
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Indomie Goreng Spesial</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Makanan</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-red-500 font-medium">1 Kardus</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp4.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier A</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Aqua Botol 600ml</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Minuman</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-[#1a7175] font-medium">4 Kardus</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp4.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier B</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Sari Roti Sandwich</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Makanan</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-orange-400 font-medium">20 Pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp7.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier C</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Rinso Molto 200ml</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Kebersihan</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-orange-400 font-medium">20 Pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp6.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier A</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Biskuit Roma</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Makanan</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-red-500 font-medium">5 Pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp8.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier B</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Teh Kotak</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Minuman</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-red-500 font-medium">10 Pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp5.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier C</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Cimory Yogurt</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Minuman</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-[#1a7175] font-medium">24 Pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp10.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier A</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="py-4 px-6 whitespace-nowrap">Ulta Milk Coklat</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Minuman</td>
-                        <td class="py-4 px-6 whitespace-nowrap text-[#1a7175] font-medium">28 Pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Rp6.000/pcs</td>
-                        <td class="py-4 px-6 whitespace-nowrap">Supplier B</td>
-                        <td class="py-4 px-6 whitespace-nowrap">
-                            <div class="flex space-x-3">
-                                <button class="text-orange-500 hover:text-orange-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-                                </button>
-                                <button class="text-red-500 hover:text-red-700 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-
+                    @forelse ($products as $product)
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td class="py-4 px-6 text-gray-400">{{ $products->firstItem() + $loop->index }}</td>
+                            <td class="py-4 px-6 font-mono text-xs text-gray-500">{{ $product->sku ?? '-' }}</td>
+                            <td class="py-4 px-6 whitespace-nowrap font-medium text-gray-900">{{ $product->name }}</td>
+                            <td class="py-4 px-6">{{ $product->unit }}</td>
+                            <td class="py-4 px-6">{{ $product->conversion_qty }}</td>
+                            <td class="py-4 px-6">
+                                @if ($product->min_stock > 0)
+                                    <span class="font-medium text-orange-500">{{ $product->min_stock }}</span>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
+                            <td class="py-4 px-6 whitespace-nowrap text-gray-500">
+                                {{ $product->parent?->name ?? '-' }}
+                            </td>
+                            <td class="py-4 px-6">
+                                <div class="flex space-x-3">
+                                    <button
+                                        @click="openEdit({{ Js::from(['id' => $product->id, 'sku' => $product->sku ?? '', 'name' => $product->name, 'unit' => $product->unit, 'conversion_qty' => $product->conversion_qty, 'min_stock' => $product->min_stock, 'parent_id' => $product->parent_id ?? '']) }})"
+                                        class="text-orange-500 hover:text-orange-700 transition-colors"
+                                        title="Edit"
+                                    >
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
+                                    </button>
+                                    <button
+                                        @click="openDelete({{ $product->id }})"
+                                        class="text-red-500 hover:text-red-700 transition-colors"
+                                        title="Hapus"
+                                    >
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="py-16 text-center text-gray-400">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                                <p class="text-sm">
+                                    @if (request('search'))
+                                        Tidak ada produk yang cocok dengan pencarian "{{ request('search') }}"
+                                    @else
+                                        Belum ada data produk. Klik "Tambah Produk" untuk memulai.
+                                    @endif
+                                </p>
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
 
-        <div class="border-t border-gray-100 p-4 flex justify-end">
-            <div class="flex space-x-2 text-sm">
-                <button class="w-8 h-8 flex items-center justify-center rounded bg-[#1a7175] text-white font-medium">1</button>
-                <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">2</button>
-                <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">3</button>
+        @if ($products->hasPages())
+            <div class="border-t border-gray-100 px-6 py-4">
+                {{ $products->links() }}
             </div>
+        @endif
+    </div>
+
+    {{-- Create / Edit Modal --}}
+    <div x-show="showModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" @click="showModal = false"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+
+            <div class="flex items-center justify-between px-6 py-4 border-b">
+                <h2 class="text-lg font-bold text-gray-900" x-text="editMode ? 'Edit Produk' : 'Tambah Produk'"></h2>
+                <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form
+                method="POST"
+                :action="editMode ? `/produk/${form.id}` : '{{ route('produk.store') }}'"
+            >
+                @csrf
+                <template x-if="editMode">
+                    <input type="hidden" name="_method" value="PUT">
+                </template>
+                <template x-if="editMode">
+                    <input type="hidden" name="_edit_id" :value="form.id">
+                </template>
+
+                <div class="p-6 space-y-4">
+
+                    {{-- SKU --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            SKU <span class="font-normal text-gray-400">(opsional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="sku"
+                            x-model="form.sku"
+                            placeholder="Kode unik produk"
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('sku') border-red-400 @enderror"
+                        >
+                        @error('sku')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Nama Produk --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Nama Produk <span class="text-red-400">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="name"
+                            x-model="form.name"
+                            required
+                            placeholder="Nama produk"
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('name') border-red-400 @enderror"
+                        >
+                        @error('name')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Satuan & Konversi --}}
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Satuan <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="unit"
+                                x-model="form.unit"
+                                required
+                                placeholder="pcs, kardus, lusin..."
+                                class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('unit') border-red-400 @enderror"
+                            >
+                            @error('unit')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Konversi Qty <span class="text-red-400">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="conversion_qty"
+                                x-model="form.conversion_qty"
+                                required
+                                min="1"
+                                class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('conversion_qty') border-red-400 @enderror"
+                            >
+                            @error('conversion_qty')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    {{-- Min Stok --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Minimal Stok <span class="text-red-400">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            name="min_stock"
+                            x-model="form.min_stock"
+                            required
+                            min="0"
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('min_stock') border-red-400 @enderror"
+                        >
+                        <p class="mt-1 text-xs text-gray-400">Notifikasi muncul ketika stok di bawah angka ini.</p>
+                        @error('min_stock')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Varian Dari (Parent) --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Varian Dari <span class="font-normal text-gray-400">(opsional)</span>
+                        </label>
+                        <select
+                            name="parent_id"
+                            x-model="form.parent_id"
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]"
+                        >
+                            <option value="">— Tidak ada (produk induk) —</option>
+                            @foreach ($parentProducts as $parent)
+                                <option value="{{ $parent->id }}">{{ $parent->name }} ({{ $parent->unit }})</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-gray-400">Isi jika produk ini merupakan satuan besar dari produk lain (mis: Kardus dari Indomie Goreng).</p>
+                    </div>
+
+                </div>
+
+                <div class="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
+                    <button
+                        type="button"
+                        @click="showModal = false"
+                        class="rounded-md border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        class="rounded-md bg-[#1a7175] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#145a5e] transition-colors"
+                        x-text="editMode ? 'Simpan Perubahan' : 'Tambah Produk'"
+                    ></button>
+                </div>
+            </form>
         </div>
     </div>
+
+    {{-- Delete Confirmation Modal --}}
+    <div x-show="showDeleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" @click="showDeleteModal = false"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 text-center">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </div>
+            <h3 class="mb-2 text-lg font-bold text-gray-900">Hapus Produk?</h3>
+            <p class="mb-6 text-sm text-gray-500">Produk yang dihapus tidak dapat dikembalikan. Semua data batch stok terkait juga akan ikut terhapus.</p>
+            <form method="POST" :action="`/produk/${deleteId}`">
+                @csrf
+                @method('DELETE')
+                <div class="flex gap-3">
+                    <button
+                        type="button"
+                        @click="showDeleteModal = false"
+                        class="flex-1 rounded-md border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        class="flex-1 rounded-md bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors"
+                    >
+                        Ya, Hapus
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
 
 </x-app-layout>
