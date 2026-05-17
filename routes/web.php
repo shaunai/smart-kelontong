@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('transaksi', TransaksiController::class)->only(['index', 'store', 'destroy']);
     Route::resource('stok', StokController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+    Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
     Route::get('/supplier', [SupplierController::class, 'index'])->name('supplier.index');
     Route::post('/kas', [CashFlowController::class, 'store'])->name('kas.store');
 });
