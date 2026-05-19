@@ -1,5 +1,9 @@
 <x-app-layout>
 
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+
 <div
     x-data="{
         showModal: false,
@@ -221,7 +225,7 @@
     </div>
 
     {{-- Create / Edit Modal --}}
-    <div x-show="showModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+    <div x-show="showModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="display: none;">
         <div class="absolute inset-0 bg-black/50" @click="showModal = false"></div>
         <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
 
@@ -249,7 +253,7 @@
                             SKU <span class="font-normal text-gray-400">(opsional)</span>
                         </label>
                         <input type="text" name="sku" x-model="form.sku" placeholder="Kode unik produk"
-                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('sku') border-red-400 @enderror">
+                            class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('sku') border-red-400 @else border-gray-200 @enderror">
                         @error('sku') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                     </div>
 
@@ -259,7 +263,7 @@
                             Nama Produk <span class="text-red-400">*</span>
                         </label>
                         <input type="text" name="name" x-model="form.name" required placeholder="Nama produk"
-                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('name') border-red-400 @enderror">
+                            class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('name') border-red-400 @else border-gray-200 @enderror">
                         @error('name') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                     </div>
 
@@ -277,7 +281,7 @@
                             x-show="!categoryCustom"
                             x-effect="$el.value = form.category || ''"
                             @change="onCategorySelect($event.target.value)"
-                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('category') border-red-400 @enderror"
+                            class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('category') border-red-400 @else border-gray-200 @enderror"
                         >
                             <option value="">— Pilih Kategori —</option>
                             @foreach ($categories as $cat)
@@ -287,13 +291,13 @@
                         </select>
 
                         {{-- Custom input mode --}}
-                        <div x-show="categoryCustom" class="flex gap-2">
+                        <div x-show="categoryCustom" x-cloak class="flex gap-2" style="display: none;">
                             <input
                                 type="text"
                                 x-model="form.category"
                                 x-effect="if (categoryCustom) $el.focus()"
                                 placeholder="Nama kategori baru..."
-                                class="flex-1 rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]"
+                                class="flex-1 rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('category') border-red-400 @else border-gray-200 @enderror"
                             >
                             <button
                                 type="button"
@@ -314,7 +318,7 @@
                                 Satuan <span class="text-red-400">*</span>
                             </label>
                             <input type="text" name="unit" x-model="form.unit" required placeholder="pcs, kardus, lusin..."
-                                class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('unit') border-red-400 @enderror">
+                                class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('unit') border-red-400 @else border-gray-200 @enderror">
                             @error('unit') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
                         <div>
@@ -322,7 +326,7 @@
                                 Konversi Qty <span class="text-red-400">*</span>
                             </label>
                             <input type="number" name="conversion_qty" x-model="form.conversion_qty" required min="1"
-                                class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('conversion_qty') border-red-400 @enderror">
+                                class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('conversion_qty') border-red-400 @else border-gray-200 @enderror">
                             @error('conversion_qty') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
                     </div>
@@ -333,7 +337,7 @@
                             Minimal Stok <span class="text-red-400">*</span>
                         </label>
                         <input type="number" name="min_stock" x-model="form.min_stock" required min="0"
-                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('min_stock') border-red-400 @enderror">
+                            class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] {{ $errors->has('min_stock') ? 'border-red-400' : 'border-gray-200' }}">
                         <p class="mt-1 text-xs text-gray-400">Notifikasi muncul ketika stok di bawah angka ini.</p>
                         @error('min_stock') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                     </div>
