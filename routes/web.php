@@ -7,24 +7,27 @@ use App\Http\Controllers\StokController;
 use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CashFlowController;
 
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::get('/produk', [ProductController::class, 'index'])->name('produk.index');
-    Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
-    Route::get('/stok', [StokController::class, 'index'])->name('stok.index');
+    Route::resource('produk', ProductController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('transaksi', TransaksiController::class)->only(['index', 'store', 'destroy']);
+    Route::resource('stok', StokController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
-    Route::get('/supplier', [SupplierController::class, 'index'])->name('supplier.index');
+    Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
+    Route::resource('supplier', SupplierController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::post('/kas', [CashFlowController::class, 'store'])->name('kas.store');
 });
 require __DIR__.'/auth.php';

@@ -1,11 +1,24 @@
 <x-app-layout>
-    
+
+<div x-data="{ showKasModal: false }" x-cloak>
+
+    {{-- Flash Message --}}
+    @if (session('success'))
+        <div class="mb-6 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-5 py-3 text-sm text-green-800">
+            <span>{{ session('success') }}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-lg leading-none text-green-600 hover:text-green-800">&times;</button>
+        </div>
+    @endif
+
     <div class="flex justify-between items-center mb-8">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Halo, Admin {{ Auth::user()->store->name ?? 'Toko' }}</h1>
             <p class="text-gray-500 mt-1">Berikut ringkasan peforma toko anda hari ini</p>
         </div>
-        <button class="bg-[#1a7175] hover:bg-[#135558] text-white px-6 py-2.5 rounded-md font-medium flex items-center transition-colors">
+        <button
+            @click="showKasModal = true"
+            class="bg-[#1a7175] hover:bg-[#135558] text-white px-6 py-2.5 rounded-md font-medium flex items-center transition-colors"
+        >
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
             Input Pemasukan
         </button>
@@ -20,7 +33,7 @@
                 <span class="text-sm font-semibold text-teal-500">+2.4%</span>
             </div>
             <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Total Stok</p>
-            <h3 class="text-3xl font-bold text-gray-900">1230</h3>
+            <h3 class="text-3xl font-bold text-gray-900">{{ $totalStock }}</h3>
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
@@ -53,7 +66,7 @@
                 <span class="text-sm font-semibold text-teal-500">Action Req</span>
             </div>
             <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Produk Hampir Habis</p>
-            <h3 class="text-3xl font-bold text-gray-900">3</h3>
+            <h3 class="text-3xl font-bold text-gray-900">{{ $criticalCount }}</h3>
         </div>
     </div>
 
@@ -75,33 +88,128 @@
                 <p class="text-sm text-gray-500">Segera lakukan restock produk ini</p>
             </div>
 
-            <div class="space-y-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-900">Indomie Goreng</h4>
-                        <p class="text-xs text-gray-500">Sembako</p>
+            <div class="space-y-4">
+                @forelse ($stockAlerts as $product)
+                    @php
+                        $isHabis    = $product->total_stock == 0;
+                        $isCritical = !$isHabis && $product->total_stock < $product->min_stock;
+                    @endphp
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="min-w-0">
+                            <h4 class="text-sm font-bold text-gray-900 truncate">{{ $product->name }}</h4>
+                            <p class="text-xs text-gray-500">
+                                Stok: <span class="{{ $isHabis ? 'text-red-500 font-semibold' : ($isCritical ? 'text-orange-500 font-semibold' : 'text-yellow-600 font-semibold') }}">{{ $product->total_stock }} {{ $product->unit }}</span>
+                                &bull; Min: {{ $product->min_stock }}
+                            </p>
+                        </div>
+                        @if ($isHabis)
+                            <span class="shrink-0 px-2.5 py-1 bg-red-100 text-red-600 text-xs font-semibold rounded-md">
+                                Stok Habis
+                            </span>
+                        @elseif ($isCritical)
+                            <span class="shrink-0 px-2.5 py-1 bg-red-100 text-red-600 text-xs font-semibold rounded-md">
+                                Restock!
+                            </span>
+                        @else
+                            <span class="shrink-0 px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-md">
+                                Hampir Habis
+                            </span>
+                        @endif
                     </div>
-                    <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-md">1 Kardus</span>
-                </div>
-                
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-900">Sabun Lifebouy</h4>
-                        <p class="text-xs text-gray-500">Kebersihan</p>
-                    </div>
-                    <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-md">10 Pcs</span>
-                </div>
-
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-900">Minyak Goreng</h4>
-                        <p class="text-xs text-gray-500">Sembako</p>
-                    </div>
-                    <span class="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-md">10 Botol 1 L</span>
-                </div>
+                @empty
+                    <p class="text-sm text-gray-400 text-center py-4">Semua stok dalam kondisi aman.</p>
+                @endforelse
             </div>
         </div>
 
+    </div>
+
+    {{-- Modal Input Kas --}}
+    <div x-show="showKasModal" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" @click="showKasModal = false"></div>
+        <div class="relative mx-4 w-full max-w-md rounded-xl bg-white shadow-xl">
+
+            <div class="flex items-center justify-between border-b px-6 py-4">
+                <h2 class="text-lg font-bold text-gray-900">Input Kas</h2>
+                <button @click="showKasModal = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form method="POST" action="{{ route('kas.store') }}">
+                @csrf
+                <div class="space-y-4 p-6">
+
+                    {{-- Tipe --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">
+                            Tipe <span class="text-red-400">*</span>
+                        </label>
+                        <select name="type" required
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
+                            <option value="in">Pemasukan</option>
+                            <option value="out">Pengeluaran</option>
+                        </select>
+                    </div>
+
+                    {{-- Kategori --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">
+                            Kategori <span class="text-red-400">*</span>
+                        </label>
+                        <select name="category" required
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
+                            <option value="Penjualan">Penjualan</option>
+                            <option value="Stok Masuk">Stok Masuk</option>
+                            <option value="Operasional">Operasional</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+
+                    {{-- Jumlah --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">
+                            Jumlah <span class="text-red-400">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">Rp</span>
+                            <input type="number" name="amount" required min="1" placeholder="0"
+                                class="w-full rounded-md border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
+                        </div>
+                    </div>
+
+                    {{-- Deskripsi --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">
+                            Deskripsi <span class="text-gray-400 font-normal">(opsional)</span>
+                        </label>
+                        <textarea name="description" rows="3" placeholder="Keterangan tambahan..."
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] resize-none"></textarea>
+                    </div>
+
+                    {{-- Referensi --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700">
+                            ID Referensi <span class="text-gray-400 font-normal">(opsional)</span>
+                        </label>
+                        <input type="number" name="reference_id" min="1" placeholder="Misal: ID transaksi terkait"
+                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
+                    </div>
+
+                </div>
+
+                <div class="flex justify-end gap-3 rounded-b-xl border-t bg-gray-50 px-6 py-4">
+                    <button type="button" @click="showKasModal = false"
+                        class="rounded-md border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit"
+                        class="rounded-md bg-[#1a7175] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#145a5e] transition-colors">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -144,4 +252,6 @@
             });
         });
     </script>
+
+</div>{{-- end x-data --}}
 </x-app-layout>
