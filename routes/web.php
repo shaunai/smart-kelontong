@@ -9,6 +9,8 @@ use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CashFlowController;
+use App\Http\Controllers\HutangController;
+use App\Http\Controllers\Api\MidtransCallbackController;
 
 
 Route::get('/', function () {
@@ -17,6 +19,8 @@ Route::get('/', function () {
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])->name('dashboard');
+    
+Route::post('/midtrans-callback', [MidtransCallbackController::class, 'callback']);
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -29,5 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
     Route::resource('supplier', SupplierController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::post('/kas', [CashFlowController::class, 'store'])->name('kas.store');
+    Route::get('/hutang', [HutangController::class, 'index'])->name('hutang.index');
+    Route::post('/hutang/{hutang}/bayar', [HutangController::class, 'pay'])->name('hutang.pay');
 });
 require __DIR__.'/auth.php';

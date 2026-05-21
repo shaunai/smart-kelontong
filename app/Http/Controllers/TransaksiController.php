@@ -6,9 +6,13 @@ use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Models\Product;
 use App\Models\CashFlow;
+use App\Models\Debt;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Midtrans\Config;
+use Midtrans\Snap;
 
 class TransaksiController extends Controller
 {
@@ -34,7 +38,7 @@ class TransaksiController extends Controller
                 'cash'     => 'Tunai',
                 'qris'     => 'QRIS',
                 'transfer' => 'Transfer Bank',
-                default    => ucfirst($s->payment_method),
+                default    => ucfirst($s->payment_method ?? '-'),
             },
             'status_label'   => match($s->payment_status) {
                 'paid'    => 'Lunas',
@@ -66,7 +70,10 @@ class TransaksiController extends Controller
             ->values()
             ->all();
 
-        return view('transaksi.index', compact('sales', 'receipts', 'products'));
+        // Ambil data pelanggan untuk form hutang
+        $customers = Customer::where('store_id', $storeId)->get();
+
+        return view('transaksi.index', compact('sales', 'receipts', 'products', 'customers'));
     }
 
     public function store(Request $request)
@@ -75,9 +82,17 @@ class TransaksiController extends Controller
             'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.qty'        => 'required|integer|min:1',
-            'payment_method'     => 'required|in:cash,qris,transfer',
+            'payment_method'     => 'nullable|in:cash,qris,transfer',
             'payment_status'     => 'required|in:paid,debt',
             'transaction_date'   => 'required|date',
+            
+            // Validasi khusus untuk Hutang & Pelanggan
+            'due_date'           => 'required_if:payment_status,debt|nullable|date',
+            'is_new_customer'    => 'required_if:payment_status,debt|boolean',
+            'customer_id'        => 'required_if:is_new_customer,false|nullable|exists:customers,id',
+            'customer_name'      => 'required_if:is_new_customer,true|nullable|string|max:255',
+            'customer_phone'     => 'nullable|string|max:20',
+            'customer_address'   => 'nullable|string',
         ]);
 
         $storeId = auth()->user()->store_id;
@@ -85,15 +100,16 @@ class TransaksiController extends Controller
         $total   = 0;
         $lines   = [];
 
+        // 1. Kalkulasi Stok & Harga
         foreach ($request->items as $item) {
             $product = Product::with('batches')->findOrFail($item['product_id']);
             $batch   = $product->batches()->where('stock', '>', 0)->orderByDesc('id')->first();
 
             if (!$batch) {
-                return back()->withErrors(['items' => "Stok {$product->name} habis."]);
+                return response()->json(['message' => "Stok {$product->name} habis."], 422);
             }
             if ($batch->stock < $item['qty']) {
-                return back()->withErrors(['items' => "Stok {$product->name} tidak cukup (tersedia: {$batch->stock})."]);
+                return response()->json(['message' => "Stok {$product->name} tidak cukup (tersedia: {$batch->stock})."], 422);
             }
 
             $price    = (float) $batch->selling_price;
@@ -109,51 +125,141 @@ class TransaksiController extends Controller
             ];
         }
 
-        $seq = Sale::where('store_id', $storeId)->whereDate('created_at', $txDate->toDateString())->count() + 1;
-        $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+        $paymentMethod = $request->payment_status === 'debt' ? null : $request->payment_method;
+        $paymentStatus = $request->payment_status;
+        $isMidtrans    = false;
 
-        $sale = Sale::create([
-            'store_id'       => $storeId,
-            'user_id'        => auth()->id(),
-            'invoice_number' => $invoiceNumber,
-            'total_price'    => $total,
-            'payment_method' => $request->payment_method,
-            'payment_status' => $request->payment_status,
-        ]);
-
-        // Override created_at dengan tanggal transaksi yang dipilih user
-        DB::table('sales')->where('id', $sale->id)->update(['created_at' => $txDate]);
-        $sale->created_at = $txDate;
-
-        foreach ($lines as $line) {
-            SaleDetail::create([
-                'sale_id'       => $sale->id,
-                'product_id'    => $line['product_id'],
-                'quantity'      => $line['quantity'],
-                'price_at_sale' => $line['price_at_sale'],
-                'subtotal'      => $line['subtotal'],
-            ]);
-            $line['batch']->decrement('stock', $line['quantity']);
+        if ($paymentStatus === 'paid' && in_array($paymentMethod, ['qris', 'transfer'])) {
+            $paymentStatus = 'pending';
+            $isMidtrans    = true;
         }
 
-        if ($request->payment_status === 'paid') {
-            CashFlow::create([
-                'store_id'     => $storeId,
-                'type'         => 'in',
-                'category'     => 'Penjualan',
-                'amount'       => $total,
-                'description'  => 'Penjualan ' . $invoiceNumber,
-                'reference_id' => $sale->id,
+        DB::beginTransaction();
+        try {
+            // 2. Buat Pelanggan Baru (Jika diceklis)
+            $customerId = $request->customer_id;
+            if ($request->payment_status === 'debt' && $request->is_new_customer) {
+                $newCustomer = Customer::create([
+                    'store_id' => $storeId,
+                    'name'     => $request->customer_name,
+                    'phone'    => $request->customer_phone,
+                    'address'  => $request->customer_address,
+                ]);
+                $customerId = $newCustomer->id;
+            }
+
+            // 3. Buat Invoice - gunakan ID terakhir dari tabel sales (lebih aman untuk menghindari tabrakan)
+            $lastSale = Sale::where('store_id', $storeId)
+                ->whereDate('created_at', $txDate->toDateString())
+                ->latest('id')
+                ->first();
+
+            $seq = $lastSale ? (int) substr($lastSale->invoice_number, -4) + 1 : 1;
+            $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+
+            // Jika nomor invoice sudah ada (misal karena data manual atau reset), cari seq berikutnya
+            while (Sale::where('invoice_number', $invoiceNumber)->exists()) {
+                $seq++;
+                $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+            }
+
+            $sale = Sale::create([
+                'store_id'       => $storeId,
+                'user_id'        => auth()->id(),
+                'invoice_number' => $invoiceNumber,
+                'total_price'    => $total,
+                'payment_method' => $paymentMethod,
+                'payment_status' => $paymentStatus,
+                'created_at'     => $txDate,
+                'updated_at'     => $txDate
             ]);
+
+            // 4. Simpan Detail Transaksi
+            foreach ($lines as $line) {
+                SaleDetail::create([
+                    'sale_id'       => $sale->id,
+                    'product_id'    => $line['product_id'],
+                    'quantity'      => $line['quantity'],
+                    'price_at_sale' => $line['price_at_sale'],
+                    'subtotal'      => $line['subtotal'],
+                ]);
+                $line['batch']->decrement('stock', $line['quantity']);
+            }
+
+            // 5. Catat Data Hutang ke Tabel Debts
+            if ($request->payment_status === 'debt') {
+                Debt::create([
+                    'store_id'          => $storeId,
+                    'sale_id'           => $sale->id,
+                    'customer_id'       => $customerId,
+                    'amount'            => $total,
+                    'remaining_balance' => $total,
+                    'due_date'          => $request->due_date,
+                    'status'            => 'unpaid',
+                ]);
+            }
+
+            // 6. Catat CashFlow (Khusus Tunai Lunas)
+            if ($paymentStatus === 'paid' && $paymentMethod === 'cash') {
+                CashFlow::create([
+                    'store_id'     => $storeId,
+                    'type'         => 'in',
+                    'category'     => 'Penjualan',
+                    'amount'       => $total,
+                    'description'  => 'Penjualan ' . $invoiceNumber,
+                    'reference_id' => $sale->id,
+                ]);
+            }
+
+            // 7. Konfigurasi Midtrans Snap
+            $snapToken = null;
+            if ($isMidtrans) {
+                Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+                Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+                Config::$isSanitized = true;
+                Config::$is3ds = true;
+
+                $enabledPayments = [];
+                if ($paymentMethod === 'qris') {
+                    $enabledPayments = ['other_qris', 'gopay', 'shopeepay']; 
+                } elseif ($paymentMethod === 'transfer') {
+                    $enabledPayments = ['bank_transfer'];
+                }
+
+                $params = [
+                    'transaction_details' => [
+                        'order_id'     => $invoiceNumber,
+                        'gross_amount' => $total,
+                    ],
+                    'customer_details' => [
+                        'first_name' => 'Bapak',
+                        'last_name'  => 'Fernando',
+                        'phone'      => 'UD. Purnama Sakti',
+                    ],
+                ];
+
+                if (!empty($enabledPayments)) {
+                    $params['enabled_payments'] = $enabledPayments;
+                }
+
+                $snapToken = Snap::getSnapToken($params);
+
+                $sale->update([
+                    'midtrans_snap_token' => $snapToken
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'     => $isMidtrans ? 'requires_payment' : 'success',
+                'message'    => "Transaksi {$invoiceNumber} berhasil dibuat.",
+                'snap_token' => $snapToken
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()], 500);
         }
-
-        return redirect()->route('transaksi.index')->with('success', "Transaksi {$invoiceNumber} berhasil disimpan.");
-    }
-
-    public function destroy(Sale $transaksi)
-    {
-        abort_if($transaksi->store_id !== auth()->user()->store_id, 403);
-        $transaksi->delete();
-        return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil dihapus.');
     }
 }
