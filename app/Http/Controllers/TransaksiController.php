@@ -78,6 +78,7 @@ class TransaksiController extends Controller
 
     public function store(Request $request)
     {
+        // Validasi dasar
         $request->validate([
             'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -85,15 +86,30 @@ class TransaksiController extends Controller
             'payment_method'     => 'nullable|in:cash,qris,transfer',
             'payment_status'     => 'required|in:paid,debt',
             'transaction_date'   => 'required|date',
-            
-            // Validasi khusus untuk Hutang & Pelanggan
-            'due_date'           => 'required_if:payment_status,debt|nullable|date',
-            'is_new_customer'    => 'required_if:payment_status,debt|boolean',
-            'customer_id'        => 'required_if:is_new_customer,false|nullable|exists:customers,id',
-            'customer_name'      => 'required_if:is_new_customer,true|nullable|string|max:255',
+            'customer_id'        => 'nullable|exists:customers,id',
+            'customer_name'      => 'nullable|string|max:255',
             'customer_phone'     => 'nullable|string|max:20',
             'customer_address'   => 'nullable|string',
         ]);
+
+        // Validasi khusus untuk transaksi hutang
+        if ($request->payment_status === 'debt') {
+            $request->validate([
+                'due_date'           => 'required|date',
+                'is_new_customer'    => 'required|boolean',
+            ]);
+
+            // Jika hutang, harus ada customer (baru atau existing)
+            if ($request->is_new_customer) {
+                if (!$request->customer_name) {
+                    return response()->json(['message' => 'Nama pelanggan baru wajib diisi untuk hutang.'], 422);
+                }
+            } else {
+                if (!$request->customer_id) {
+                    return response()->json(['message' => 'Pelanggan wajib dipilih untuk hutang.'], 422);
+                }
+            }
+        }
 
         $storeId = auth()->user()->store_id;
         $txDate  = Carbon::parse($request->transaction_date);
