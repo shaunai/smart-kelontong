@@ -13,7 +13,7 @@ use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Models\Debt;
 use App\Models\CashFlow;
-use App\Models\WaLog;
+use App\Models\EmailLog;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
@@ -394,14 +394,15 @@ class DatabaseSeeder extends Seeder
             'reference_id' => $sale->id,
         ]);
 
-        // 10. SEED DATA LOG WHATSAPP (WA LOG)
-        WaLog::create([
+        // 10. SEED DATA LOG EMAIL (EMAIL LOG)
+        EmailLog::create([
             'store_id' => $store->id,
-            'recipient' => $customer->phone,
-            'message' => 'Halo Budi, terima kasih telah berbelanja. Total belanjaan Anda Rp132.000.',
+            'recipient_email' => 'budi.sudrajat@gmail.com', // Bisa diganti $customer->email jika tabel customers di-update
+            'subject' => 'Struk Pembayaran - Toko Kelontong Berkah',
+            'message' => 'Halo Budi, terima kasih telah berbelanja di Toko Kelontong Berkah. Total belanjaan Anda adalah Rp132.000.',
             'category' => 'payment_receipt', // Sesuai ENUM ['reminder_debt', 'stock_alert', 'payment_receipt']
             'status' => 'sent',
-            'fonte_id' => 'FONTE-12345678',
+            'message_id' => '<1234567890@mail.gmail.com>', // Simulasi Message-ID dari balasan SMTP Google/Gmail
         ]);
 
         // 11. TRANSAKSI TAMBAHAN (total 5 transaksi)

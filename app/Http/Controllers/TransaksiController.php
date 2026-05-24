@@ -278,4 +278,33 @@ class TransaksiController extends Controller
             return response()->json(['message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()], 500);
         }
     }
+
+    public function destroy($id)
+    {
+        $storeId = auth()->user()->store_id;
+        $sale = Sale::where('store_id', $storeId)->findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            // Restore stock for all sale details
+            foreach ($sale->details as $detail) {
+                $detail->product->batches()->latest('id')->first()?->increment('stock', $detail->quantity);
+            }
+
+            // Delete related records
+            $sale->details()->delete();
+            Debt::where('sale_id', $sale->id)->delete();
+            CashFlow::where('reference_id', $sale->id)->delete();
+
+            // Delete the sale
+            $sale->delete();
+
+            DB::commit();
+
+            return redirect()->route('transaksi.index')->with('success', 'Transaksi berhasil dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('transaksi.index')->with('error', 'Gagal menghapus transaksi: ' . $e->getMessage());
+        }
+    }
 }

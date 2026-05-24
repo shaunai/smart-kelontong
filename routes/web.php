@@ -11,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CashFlowController;
 use App\Http\Controllers\HutangController;
 use App\Http\Controllers\Api\MidtransCallbackController;
+use App\Http\Controllers\TokoSettingController;
 
 
 Route::get('/', function () {
@@ -35,5 +36,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/kas', [CashFlowController::class, 'store'])->name('kas.store');
     Route::get('/hutang', [HutangController::class, 'index'])->name('hutang.index');
     Route::post('/hutang/{hutang}/bayar', [HutangController::class, 'pay'])->name('hutang.pay');
+    Route::get('/pengaturan-toko', [TokoSettingController::class, 'edit'])->name('toko.settings.edit');
+    Route::put('/pengaturan-toko', [TokoSettingController::class, 'update'])->name('toko.settings.update');
 });
 require __DIR__.'/auth.php';
