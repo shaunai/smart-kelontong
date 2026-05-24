@@ -229,7 +229,7 @@
                             Produk <span class="text-red-400">*</span>
                         </label>
                         <select name="product_id" x-model="form.product_id" required
-                            class="w-full rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('product_id') border-red-400 @else border border-gray-200 @enderror">
+                            class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('product_id') border-red-500 @else border-gray-200 @enderror">
                             <option value="">— Pilih Produk —</option>
                             @foreach ($productsList as $p)
                                 <option value="{{ $p->id }}">{{ $p->name }} ({{ $p->unit }})</option>
@@ -261,7 +261,7 @@
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">Rp</span>
                                 <input type="number" name="purchase_price" x-model="form.purchase_price" required min="0"
-                                    class="w-full rounded-md border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('purchase_price') border-red-400 @enderror">
+                                    class="w-full rounded-md border {{ $errors->has('purchase_price') ? 'border-red-400' : 'border-gray-200' }} py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
                             </div>
                             @error('purchase_price') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
@@ -272,7 +272,7 @@
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">Rp</span>
                                 <input type="number" name="selling_price" x-model="form.selling_price" required min="0"
-                                    class="w-full rounded-md border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('selling_price') border-red-400 @enderror">
+                                    class="w-full rounded-md border {{ $errors->has('selling_price') ? 'border-red-400' : 'border-gray-200' }} py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
                             </div>
                             @error('selling_price') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
@@ -285,7 +285,7 @@
                                 Jumlah Stok <span class="text-red-400">*</span>
                             </label>
                             <input type="number" name="stock" x-model="form.stock" required min="0"
-                                class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('stock') border-red-400 @enderror">
+                                class="w-full rounded-md border {{ $errors->has('stock') ? 'border-red-400' : 'border-gray-200' }} px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]">
                             @error('stock') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
                         <div>
