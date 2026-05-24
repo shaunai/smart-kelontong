@@ -229,7 +229,7 @@
                             Produk <span class="text-red-400">*</span>
                         </label>
                         <select name="product_id" x-model="form.product_id" required
-                            class="w-full rounded-md border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('product_id') border-red-400 @enderror">
+                            class="w-full rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('product_id') border-red-400 @else border border-gray-200 @enderror">
                             <option value="">— Pilih Produk —</option>
                             @foreach ($productsList as $p)
                                 <option value="{{ $p->id }}">{{ $p->name }} ({{ $p->unit }})</option>
