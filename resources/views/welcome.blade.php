@@ -84,34 +84,38 @@
                 </div>
             </div>
 
-            <div class="w-full lg:w-1/2 flex justify-center lg:justify-end">
-                <div class="relative w-full max-w-lg aspect-square lg:aspect-[4/3] rounded-2xl bg-gradient-to-tr from-gray-100 to-gray-50 border border-gray-200 shadow-2xl overflow-hidden flex items-center justify-center p-8">
-                    <div class="w-full h-full bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4 relative z-10">
-                        <div class="flex justify-between items-center border-b border-gray-50 pb-2">
-                            <div class="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
-                            <div class="h-6 w-6 bg-green-100 rounded-full flex items-center justify-center"><div class="h-3 w-3 bg-green-500 rounded-full"></div></div>
-                        </div>
-                        <div class="flex gap-4">
-                            <div class="flex-1 h-20 bg-gray-50 rounded-lg border border-gray-100 p-3 flex flex-col justify-between">
-                                <div class="h-2 w-12 bg-gray-200 rounded"></div>
-                                <div class="h-5 w-20 bg-emerald-500 rounded"></div>
-                            </div>
-                            <div class="flex-1 h-20 bg-gray-50 rounded-lg border border-gray-100 p-3 flex flex-col justify-between">
-                                <div class="h-2 w-16 bg-gray-200 rounded"></div>
-                                <div class="h-5 w-16 bg-green-500 rounded"></div>
-                            </div>
-                        </div>
-                        <div class="flex-1 bg-gray-50 rounded-lg border border-gray-100 mt-2 p-3">
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center"><div class="h-2 w-1/3 bg-gray-200 rounded"></div><div class="h-2 w-1/4 bg-gray-200 rounded"></div></div>
-                                <div class="flex justify-between items-center"><div class="h-2 w-1/2 bg-gray-200 rounded"></div><div class="h-2 w-1/5 bg-gray-200 rounded"></div></div>
-                                <div class="flex justify-between items-center"><div class="h-2 w-1/4 bg-gray-200 rounded"></div><div class="h-2 w-1/3 bg-gray-200 rounded"></div></div>
-                            </div>
-                        </div>
+                    <div class="w-full lg:w-1/2 flex justify-center lg:justify-end">
+            <div id="image-carousel" class="relative w-full max-w-lg aspect-square lg:aspect-[4/3] rounded-2xl border border-gray-100 shadow-2xl overflow-hidden group bg-gray-50">
+                
+                <div id="carousel-slides" class="flex transition-transform duration-500 ease-out h-full w-full">
+                    
+                    <div class="min-w-full h-full flex-shrink-0">
+                        <img src="{{ asset('images/slide1.jpg') }}" alt="Tampilan Aplikasi 1" class="w-full h-full object-cover">
                     </div>
-                    <div class="absolute -top-12 -right-12 w-48 h-48 bg-green-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-pulse"></div>
-                    <div class="absolute -bottom-12 -left-12 w-48 h-48 bg-emerald-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-pulse" style="animation-delay: 2s;"></div>
+                    
+                    <div class="min-w-full h-full flex-shrink-0">
+                        <img src="{{ asset('images/slide2.jpg') }}" alt="Tampilan Aplikasi 2" class="w-full h-full object-cover">
+                    </div>
+                    
+                    <div class="min-w-full h-full flex-shrink-0">
+                        <img src="{{ asset('images/slide3.jpg') }}" alt="Tampilan Aplikasi 3" class="w-full h-full object-cover">
+                    </div>
+                    
                 </div>
+
+                <button id="prev-btn" class="absolute top-1/2 left-4 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <button id="next-btn" class="absolute top-1/2 right-4 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+
+                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+                    <button class="carousel-dot w-2 h-2 rounded-full bg-white shadow focus:outline-none transition-colors" data-slide="0"></button>
+                    <button class="carousel-dot w-2 h-2 rounded-full bg-white/50 hover:bg-white/80 shadow focus:outline-none transition-colors" data-slide="1"></button>
+                    <button class="carousel-dot w-2 h-2 rounded-full bg-white/50 hover:bg-white/80 shadow focus:outline-none transition-colors" data-slide="2"></button>
+                </div>
+                
             </div>
         </div>
     </main>
@@ -158,5 +162,76 @@
         </div>
     </footer>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const slides = document.getElementById('carousel-slides');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const dots = document.querySelectorAll('.carousel-dot');
+            
+            let currentSlide = 0;
+            const totalSlides = dots.length;
+            let slideInterval;
+
+            function updateCarousel() {
+                // Geser posisi container flex
+                slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+                
+                // Update tampilan dot indikator
+                dots.forEach((dot, index) => {
+                    if (index === currentSlide) {
+                        dot.classList.remove('bg-white/50', 'hover:bg-white/80');
+                        dot.classList.add('bg-white');
+                    } else {
+                        dot.classList.add('bg-white/50', 'hover:bg-white/80');
+                        dot.classList.remove('bg-white');
+                    }
+                });
+            }
+
+            function nextSlide() {
+                currentSlide = (currentSlide + 1) % totalSlides;
+                updateCarousel();
+            }
+
+            function prevSlide() {
+                currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+                updateCarousel();
+            }
+
+            // Event Listeners untuk tombol Prev/Next
+            nextBtn.addEventListener('click', () => {
+                nextSlide();
+                resetInterval();
+            });
+            
+            prevBtn.addEventListener('click', () => {
+                prevSlide();
+                resetInterval();
+            });
+
+            // Event Listeners untuk klik Dot
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', () => {
+                    currentSlide = index;
+                    updateCarousel();
+                    resetInterval();
+                });
+            });
+
+            // Auto-play: Geser otomatis setiap 4 detik
+            function startInterval() {
+                slideInterval = setInterval(nextSlide, 4000);
+            }
+
+            function resetInterval() {
+                clearInterval(slideInterval);
+                startInterval();
+            }
+
+            // Mulai auto-play saat halaman dimuat
+            startInterval();
+        });
+    </script>
 </body>
 </html>
