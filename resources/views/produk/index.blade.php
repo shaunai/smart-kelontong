@@ -104,7 +104,7 @@
     </div>
 
     {{-- Search --}}
-    <form method="GET" action="{{ route('produk.index') }}" class="mb-6 flex gap-3">
+    <form method="GET" action="{{ route('produk.index') }}" class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         @if (request('category'))
             <input type="hidden" name="category" value="{{ request('category') }}">
         @endif

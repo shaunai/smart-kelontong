@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
     html {
         min-height: 100%;
         -webkit-text-size-adjust: 100%;
@@ -12,6 +18,8 @@
     body {
         min-height: 100vh;
         background-color: #f3f4f6;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
     }
 
     img,

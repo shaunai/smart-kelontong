@@ -102,7 +102,7 @@
     </div>
 
     {{-- Search --}}
-    <form method="GET" action="{{ route('stok.index') }}" class="mb-6 flex gap-3">
+    <form method="GET" action="{{ route('stok.index') }}" class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
             type="text"
             name="search"

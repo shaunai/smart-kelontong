@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <title>{{ config('app.name', 'Smart Klontong') }} - Transformasi Digital Toko Kelontong</title>
 
@@ -85,9 +85,9 @@
             </div>
 
                     <div class="w-full lg:w-1/2 flex justify-center lg:justify-end">
-            <div id="image-carousel" class="relative w-full max-w-lg aspect-square lg:aspect-[4/3] rounded-2xl border border-gray-100 shadow-2xl overflow-hidden group bg-gray-50">
-                
-                <div id="carousel-slides" class="flex transition-transform duration-500 ease-out h-full w-full">
+            <div id="image-carousel" class="relative w-full max-w-lg rounded-2xl border border-gray-100 shadow-2xl overflow-hidden group bg-gray-50">
+                <div class="w-full pb-[100%] lg:pb-[75%]"></div>
+                <div id="carousel-slides" class="absolute inset-0 flex transition-transform duration-500 ease-out">
                     
                     <div class="min-w-full h-full flex-shrink-0">
                         <img src="{{ asset('images/slide1.jpg') }}" alt="Tampilan Aplikasi 1" class="w-full h-full object-cover">

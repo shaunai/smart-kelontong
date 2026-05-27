@@ -73,30 +73,32 @@
     <h2 class="text-lg font-bold text-gray-800 mb-4">Data Supplier</h2>
     <div class="space-y-4">
         @forelse($suppliers as $supplier)
-            <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between">
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
 
                 {{-- Nama --}}
-                <div class="flex items-center w-1/3 min-w-0">
+                <div class="flex items-center min-w-0">
                     <div class="w-12 h-12 rounded-lg bg-teal-50 flex items-center justify-center text-[#1a7175] mr-4 flex-shrink-0">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <h3 class="font-bold text-gray-900 text-lg truncate">{{ $supplier->name }}</h3>
+                    <div class="min-w-0">
+                        <h3 class="font-bold text-gray-900 text-lg truncate">{{ $supplier->name }}</h3>
+                    </div>
                 </div>
 
-                {{-- Telepon --}}
-                <div class="w-1/4">
-                    <p class="font-medium text-gray-900 text-sm">{{ $supplier->phone ?: '—' }}</p>
-                </div>
-
-                {{-- Alamat --}}
-                <div class="w-1/4 text-xs text-gray-700 leading-tight line-clamp-2">
-                    {{ $supplier->address ?: '—' }}
+                {{-- Kontak dan Alamat --}}
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <div class="text-sm text-gray-900 break-words">
+                        {{ $supplier->phone ?: '—' }}
+                    </div>
+                    <div class="text-xs text-gray-700 leading-tight line-clamp-2 break-words">
+                        {{ $supplier->address ?: '—' }}
+                    </div>
                 </div>
 
                 {{-- Aksi --}}
-                <div class="flex items-center justify-end w-1/6">
+                <div class="flex items-center justify-end">
                     <div class="flex space-x-2">
                         <button @click="openEdit(@js(['id' => $supplier->id, 'name' => $supplier->name, 'phone' => $supplier->phone ?? '', 'address' => $supplier->address ?? '']))"
                                 class="text-orange-500 hover:text-orange-700">

@@ -33,7 +33,7 @@
     {{-- Table --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-50 overflow-hidden">
         <div class="overflow-x-auto">
-        <table class="w-full min-w-[900px] text-sm text-left">
+        <table class="w-full text-sm text-left">
             <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold tracking-wide">
                 <tr>
                     <th class="px-6 py-4">No</th>
