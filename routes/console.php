@@ -13,3 +13,6 @@ Schedule::command('stok:cek-kritis')->dailyAt('07:30');
 
 // Jadwal Pengingat Piutang (dikirim setiap jam 08:00 pagi)
 Schedule::command('hutang:cek-jatuh-tempo')->dailyAt('08:00');
+
+// Jadwal Pengingat Kadaluwarsa (dikirim setiap hari Senin jam 08:30)
+Schedule::command('produk:cek-kadaluwarsa')->weeklyOn(1, '08:30');
