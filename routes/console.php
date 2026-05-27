@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Jadwal Pengingat Stok (dikirim setiap jam 07:30 pagi sebelum toko buka)
-// Schedule::command('stok:cek-kritis')->dailyAt('07:30');
+Schedule::command('stok:cek-kritis')->dailyAt('07:30');
 
 // Jadwal Pengingat Piutang (dikirim setiap jam 08:00 pagi)
 Schedule::command('hutang:cek-jatuh-tempo')->dailyAt('08:00');
