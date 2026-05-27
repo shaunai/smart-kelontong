@@ -34,9 +34,9 @@ class DatabaseSeeder extends Seeder
 
         $owner = User::create([
             'store_id' => $store->id,
-            'name' => 'Ahmad Owner',
+            'name' => 'Bayu Yudha',
             'username' => 'owner123',
-            'email' => 'owner@smartklontong.com', // <--- Tambahkan ini
+            'email' => 'bayuyudha41@gmail.com', // <--- Tambahkan ini
             'password' => 'password123',
             'role' => 'owner',
         ]);

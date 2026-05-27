@@ -8,8 +8,11 @@ use App\Models\Product;
 use App\Models\CashFlow;
 use App\Models\Debt;
 use App\Models\Customer;
+use App\Models\User;
+use App\Notifications\StokKritisNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache; // Wajib ditambahkan untuk fitur limit
 use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\Snap;
@@ -70,7 +73,6 @@ class TransaksiController extends Controller
             ->values()
             ->all();
 
-        // Ambil data pelanggan untuk form hutang
         $customers = Customer::where('store_id', $storeId)->get();
 
         return view('transaksi.index', compact('sales', 'receipts', 'products', 'customers'));
@@ -78,7 +80,6 @@ class TransaksiController extends Controller
 
     public function store(Request $request)
     {
-        // Validasi dasar
         $request->validate([
             'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -92,14 +93,12 @@ class TransaksiController extends Controller
             'customer_address'   => 'nullable|string',
         ]);
 
-        // Validasi khusus untuk transaksi hutang
         if ($request->payment_status === 'debt') {
             $request->validate([
-                'due_date'           => 'required|date',
-                'is_new_customer'    => 'required|boolean',
+                'due_date'        => 'required|date',
+                'is_new_customer' => 'required|boolean',
             ]);
 
-            // Jika hutang, harus ada customer (baru atau existing)
             if ($request->is_new_customer) {
                 if (!$request->customer_name) {
                     return response()->json(['message' => 'Nama pelanggan baru wajib diisi untuk hutang.'], 422);
@@ -134,6 +133,8 @@ class TransaksiController extends Controller
 
             $lines[] = [
                 'product_id'    => $product->id,
+                'product_name'  => $product->name,
+                'unit'          => $product->unit,
                 'quantity'      => (int) $item['qty'],
                 'price_at_sale' => $price,
                 'subtotal'      => $subtotal,
@@ -164,7 +165,7 @@ class TransaksiController extends Controller
                 $customerId = $newCustomer->id;
             }
 
-            // 3. Buat Invoice - gunakan ID terakhir dari tabel sales (lebih aman untuk menghindari tabrakan)
+            // 3. Buat Invoice
             $lastSale = Sale::where('store_id', $storeId)
                 ->whereDate('created_at', $txDate->toDateString())
                 ->latest('id')
@@ -173,7 +174,6 @@ class TransaksiController extends Controller
             $seq = $lastSale ? (int) substr($lastSale->invoice_number, -4) + 1 : 1;
             $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
-            // Jika nomor invoice sudah ada (misal karena data manual atau reset), cari seq berikutnya
             while (Sale::where('invoice_number', $invoiceNumber)->exists()) {
                 $seq++;
                 $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
@@ -190,7 +190,9 @@ class TransaksiController extends Controller
                 'updated_at'     => $txDate
             ]);
 
-            // 4. Simpan Detail Transaksi
+            // 4. Simpan Detail Transaksi, Kurangi Stok & Kumpulkan Data Kritis
+            $barangKritisTransaksiIni = [];
+            
             foreach ($lines as $line) {
                 SaleDetail::create([
                     'sale_id'       => $sale->id,
@@ -199,10 +201,49 @@ class TransaksiController extends Controller
                     'price_at_sale' => $line['price_at_sale'],
                     'subtotal'      => $line['subtotal'],
                 ]);
+                
+                // Kurangi stok di database
                 $line['batch']->decrement('stock', $line['quantity']);
+                
+                // Cek sisa stok setelah dikurangi
+                $sisaStok = $line['batch']->stock;
+                $batasKritis = 5;
+
+                // Jika stok menyentuh kritis, masukkan ke keranjang laporan
+                if ($sisaStok <= $batasKritis) {
+                    $barangKritisTransaksiIni[] = (object) [
+                        'name' => $line['product_name'],
+                        'batches_sum_stock' => $sisaStok,
+                        'unit' => $line['unit']
+                    ];
+                }
             }
 
-            // 5. Catat Data Hutang ke Tabel Debts
+            // 5. Cek Limit dan Kirim Notifikasi Instan
+            if (count($barangKritisTransaksiIni) > 0) {
+                // Cari owner toko
+                $owner = User::where('store_id', $storeId)->where('role', 'owner')->first();
+                
+                if ($owner) {
+                    $hariIni = Carbon::now()->format('Y-m-d');
+                    // Buat kunci cache unik untuk owner ini per hari
+                    $cacheKey = "notif_stok_instan_{$owner->id}_{$hariIni}";
+                    
+                    // Ambil jumlah notifikasi yang sudah dikirim hari ini (default 0)
+                    $jumlahNotifHariIni = Cache::get($cacheKey, 0);
+
+                    // Hanya kirim jika belum melebihi limit 3 kali sehari
+                    if ($jumlahNotifHariIni < 3) {
+                        // Ubah array menjadi collection agar sesuai dengan format di StokKritisNotification
+                        $owner->notify(new StokKritisNotification(collect($barangKritisTransaksiIni)));
+                        
+                        // Tambah hitungan cache dan set kedaluwarsa pada pukul 23:59:59 malam ini
+                        Cache::put($cacheKey, $jumlahNotifHariIni + 1, Carbon::now()->endOfDay());
+                    }
+                }
+            }
+
+            // 6. Catat Data Hutang ke Tabel Debts
             if ($request->payment_status === 'debt') {
                 Debt::create([
                     'store_id'          => $storeId,
@@ -215,7 +256,7 @@ class TransaksiController extends Controller
                 ]);
             }
 
-            // 6. Catat CashFlow (Khusus Tunai Lunas)
+            // 7. Catat CashFlow (Khusus Tunai Lunas)
             if ($paymentStatus === 'paid' && $paymentMethod === 'cash') {
                 CashFlow::create([
                     'store_id'     => $storeId,
@@ -227,7 +268,7 @@ class TransaksiController extends Controller
                 ]);
             }
 
-            // 7. Konfigurasi Midtrans Snap
+            // 8. Konfigurasi Midtrans Snap
             $snapToken = null;
             if ($isMidtrans) {
                 Config::$serverKey = env('MIDTRANS_SERVER_KEY');
@@ -286,17 +327,13 @@ class TransaksiController extends Controller
 
         DB::beginTransaction();
         try {
-            // Restore stock for all sale details
             foreach ($sale->details as $detail) {
                 $detail->product->batches()->latest('id')->first()?->increment('stock', $detail->quantity);
             }
 
-            // Delete related records
             $sale->details()->delete();
             Debt::where('sale_id', $sale->id)->delete();
             CashFlow::where('reference_id', $sale->id)->delete();
-
-            // Delete the sale
             $sale->delete();
 
             DB::commit();
