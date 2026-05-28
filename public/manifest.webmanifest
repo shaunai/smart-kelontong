@@ -1,0 +1,22 @@
+{
+    "name": "Smart Klontong",
+    "short_name": "SmartKlontong",
+    "description": "Aplikasi manajemen toko kelontong offline-first untuk inventaris, transaksi, dan laporan.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#1a7175",
+    "icons": [
+        {
+            "src": "/images/logo.jpeg",
+            "sizes": "192x192",
+            "type": "image/jpeg"
+        },
+        {
+            "src": "/images/logo.jpeg",
+            "sizes": "512x512",
+            "type": "image/jpeg"
+        }
+    ]
+}
