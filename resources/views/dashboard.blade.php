@@ -20,7 +20,7 @@
             class="bg-[#1a7175] hover:bg-[#135558] text-white px-6 py-2.5 rounded-md font-medium flex items-center transition-colors"
         >
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-            Input Pemasukan
+            Input Transaksi
         </button>
     </div>
 
