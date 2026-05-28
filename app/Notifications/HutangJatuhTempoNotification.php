@@ -7,8 +7,9 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\HtmlString;
 use Carbon\Carbon;
+use Illuminate\Contracts\Queue\ShouldQueue;
 
-class HutangJatuhTempoNotification extends Notification
+class HutangJatuhTempoNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 

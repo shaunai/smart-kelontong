@@ -11,7 +11,6 @@ class StokKritisNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-
     protected $daftarStokKritis;
 
     public function __construct($daftarStokKritis)
