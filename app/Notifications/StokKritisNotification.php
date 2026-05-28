@@ -15,7 +15,13 @@ class StokKritisNotification extends Notification implements ShouldQueue
 
     public function __construct($daftarStokKritis)
     {
-        $this->daftarStokKritis = $daftarStokKritis;
+        $this->daftarStokKritis = collect($daftarStokKritis)->map(function ($produk) {
+            return (object) [
+                'name' => $produk->name ?? $produk['name'] ?? null,
+                'unit' => $produk->unit ?? $produk['unit'] ?? null,
+                'batches_sum_stock' => $produk->batches_sum_stock ?? ($produk['batches_sum_stock'] ?? 0),
+            ];
+        });
     }
 
     public function via(object $notifiable): array

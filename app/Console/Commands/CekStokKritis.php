@@ -35,7 +35,14 @@ class CekStokKritis extends Command
                     $owner = User::where('store_id', $storeId)->where('role', 'owner')->first();
                     if ($owner) {
                         $this->info('Sending notification to: ' . $owner->name . ' (' . $owner->email . ')');
-                        $owner->notify(new StokKritisNotification($daftarProduk));
+
+                        $plainProduk = $daftarProduk->map(fn ($produk) => (object) [
+                            'name' => $produk->name,
+                            'unit' => $produk->unit,
+                            'batches_sum_stock' => $produk->batches_sum_stock ?? 0,
+                        ]);
+
+                        $owner->notify(new StokKritisNotification($plainProduk));
                         $this->info('✓ Notification sent to ' . $owner->email);
                     } else {
                         $this->warn('No owner found for store_id: ' . $storeId);
