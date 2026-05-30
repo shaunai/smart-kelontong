@@ -139,6 +139,7 @@ class TransaksiController extends Controller
                 'price_at_sale' => $price,
                 'subtotal'      => $subtotal,
                 'batch'         => $batch,
+                'min_stock'     => $product->min_stock ?? 5,
             ];
         }
 
@@ -207,14 +208,16 @@ class TransaksiController extends Controller
                 
                 // Cek sisa stok setelah dikurangi
                 $sisaStok = $line['batch']->stock;
-                $batasKritis = 5;
+                $batasKritis = $line['min_stock'] ?? 5;
 
                 // Jika stok menyentuh kritis, masukkan ke keranjang laporan
                 if ($sisaStok <= $batasKritis) {
                     $barangKritisTransaksiIni[] = (object) [
                         'name' => $line['product_name'],
                         'batches_sum_stock' => $sisaStok,
-                        'unit' => $line['unit']
+                        'unit' => $line['unit'],
+                        'min_stock' => $batasKritis,
+                        'status' => $sisaStok <= 0 ? 'Habis' : 'Menipis',
                     ];
                 }
             }

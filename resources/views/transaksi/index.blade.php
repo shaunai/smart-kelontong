@@ -581,7 +581,37 @@ function transaksiApp() {
 
             } catch (error) {
                 console.error(error);
-                this.alertMessage = "Terjadi masalah jaringan ke server.";
+                const payload = {
+                    items: this.items,
+                    payment_method: this.paymentMethod,
+                    payment_status: this.paymentStatus,
+                    transaction_date: this.transactionDate,
+                    due_date: this.dueDate,
+                    is_new_customer: this.isNewCustomer,
+                    customer_id: this.customerId,
+                    customer_name: this.newCustomer.name,
+                    customer_phone: this.newCustomer.phone,
+                    customer_address: this.newCustomer.address,
+                    csrf_token: '{{ csrf_token() }}',
+                };
+
+                try {
+                    await window.addOfflineTransaction(payload);
+                    this.alertMessage = "Anda sedang offline. Transaksi disimpan dan akan disinkronkan saat koneksi kembali.";
+
+                    if ("serviceWorker" in navigator && "SyncManager" in window) {
+                        const registration = await navigator.serviceWorker.ready;
+                        try {
+                            await registration.sync.register('sync-transactions');
+                            console.log('Background sync registered.');
+                        } catch (syncError) {
+                            console.warn('Pendaftaran background sync gagal:', syncError);
+                        }
+                    }
+                } catch (saveError) {
+                    console.error('Gagal menyimpan transaksi offline:', saveError);
+                    this.alertMessage = "Terjadi masalah saat menyimpan transaksi offline.";
+                }
             } finally {
                 this.isSubmitting = false;
             }

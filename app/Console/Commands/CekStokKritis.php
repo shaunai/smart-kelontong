@@ -14,7 +14,6 @@ class CekStokKritis extends Command
 
     public function handle()
     {
-        $batasKritis = 5;
         $this->info('Checking for critical stock...');
 
         try {
@@ -22,9 +21,10 @@ class CekStokKritis extends Command
             $semuaProduk = Product::withSum('batches', 'stock')->get();
             $this->info('Total products checked: ' . $semuaProduk->count());
 
-            // Saring produk yang stoknya 5 atau kurang
-            $produkKritis = $semuaProduk->filter(function ($produk) use ($batasKritis) {
-                return ($produk->batches_sum_stock ?? 0) <= $batasKritis;
+            // Saring produk yang stoknya menipis atau habis sesuai min_stock setiap produk
+            $produkKritis = $semuaProduk->filter(function ($produk) {
+                $threshold = $produk->min_stock ?? 5;
+                return ($produk->batches_sum_stock ?? 0) <= $threshold;
             });
 
             $this->info('Critical stock products found: ' . $produkKritis->count());
@@ -36,10 +36,11 @@ class CekStokKritis extends Command
                     if ($owner) {
                         $this->info('Sending notification to: ' . $owner->name . ' (' . $owner->email . ')');
 
-                        $plainProduk = $daftarProduk->map(fn ($produk) => (object) [
+                        $plainProduk = $daftarProduk->sortBy('batches_sum_stock')->map(fn ($produk) => (object) [
                             'name' => $produk->name,
                             'unit' => $produk->unit,
                             'batches_sum_stock' => $produk->batches_sum_stock ?? 0,
+                            'min_stock' => $produk->min_stock ?? 5,
                         ]);
 
                         $owner->notify(new StokKritisNotification($plainProduk));
