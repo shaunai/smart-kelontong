@@ -5,59 +5,61 @@ namespace App\Http\Controllers;
 use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Models\CashFlow;
-use App\Exports\LaporanExport;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Facades\Excel;
+use Carbon\Carbon;
 
 class LaporanController extends Controller
 {
     public function index()
     {
+        // 1. Ambil ID Toko & Set Waktu Hari Ini
         $storeId = auth()->user()->store_id;
-        $today   = Carbon::today();
-        $week    = [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
+        $today = Carbon::today();
 
-        $pemasukanHariIni = CashFlow::where('store_id', $storeId)
-            ->where('type', 'in')
+        // 2. Hitung Pemasukan Hari Ini (Total dari transaksi yang lunas)
+        $pemasukanHariIni = Sale::where('store_id', $storeId)
             ->whereDate('created_at', $today)
+            ->where('payment_status', 'paid')
+            ->sum('total_price');
+
+        // 3. Hitung Pengeluaran Hari Ini (Dari tabel CashFlow yang tipenya 'out' / keluar)
+        // Sesuaikan 'out' dengan enum/value di database Anda
+        $pengeluaranHariIni = CashFlow::where('store_id', $storeId)
+            ->whereDate('created_at', $today)
+            ->where('type', 'out') 
             ->sum('amount');
 
-        $rataRataTransaksi = Sale::where('store_id', $storeId)
-            ->whereDate('created_at', $today)
-            ->avg('total_price') ?? 0;
+        // 4. Hitung Laba Bersih Hari Ini
+        $labaHariIni = $pemasukanHariIni - $pengeluaranHariIni;
 
-        $jumlahTransaksi = Sale::where('store_id', $storeId)
+        // 5. Hitung Jumlah & Rata-rata Transaksi Hari Ini
+        $salesToday = Sale::where('store_id', $storeId)
             ->whereDate('created_at', $today)
-            ->count();
+            ->where('payment_status', 'paid');
+            
+        $jumlahTransaksi = $salesToday->count();
+        $rataRataTransaksi = $jumlahTransaksi > 0 ? $salesToday->avg('total_price') : 0;
 
-        $produkTerlaris = SaleDetail::whereHas('sale', fn($q) =>
-                $q->where('store_id', $storeId)->whereDate('created_at', $today)
-            )
+        // 6. Ambil 1 Produk Terlaris HARI INI
+        $produkTerlaris = SaleDetail::whereHas('sale', function ($query) use ($storeId, $today) {
+                $query->where('store_id', $storeId)
+                      ->whereDate('created_at', $today)
+                      ->where('payment_status', 'paid');
+            })
             ->select('product_id', DB::raw('SUM(quantity) as total_qty'))
             ->groupBy('product_id')
             ->orderByDesc('total_qty')
-            ->with('product')
+            ->with('product') // Mengambil data relasi tabel produk
             ->first();
 
-        $chartData = SaleDetail::whereHas('sale', fn($q) =>
-                $q->where('store_id', $storeId)->whereDate('created_at', $today)
-            )
-            ->select('product_id', DB::raw('SUM(quantity) as total_qty'))
-            ->groupBy('product_id')
-            ->orderByDesc('total_qty')
-            ->limit(7)
-            ->with('product')
-            ->get();
-
-        $chartLabels = $chartData->pluck('product.name')->toArray();
-        $chartValues = $chartData->pluck('total_qty')->toArray();
-
-        $top5Minggu = SaleDetail::whereHas('sale', fn($q) =>
-                $q->where('store_id', $storeId)
-                  ->whereBetween('created_at', $week)
-            )
+        // 7. Ambil 5 Produk Terlaris MINGGU INI (7 Hari Terakhir)
+        $startOfWeek = Carbon::now()->subDays(7)->startOfDay();
+        $top5Minggu = SaleDetail::whereHas('sale', function ($query) use ($storeId, $startOfWeek) {
+                $query->where('store_id', $storeId)
+                      ->where('created_at', '>=', $startOfWeek)
+                      ->where('payment_status', 'paid');
+            })
             ->select('product_id', DB::raw('SUM(quantity) as total_qty'))
             ->groupBy('product_id')
             ->orderByDesc('total_qty')
@@ -65,23 +67,45 @@ class LaporanController extends Controller
             ->with('product')
             ->get();
 
+        // 8. Siapkan Data untuk Chart.js (Grafik Penjualan per Jam - Format Pcs)
+        // Mengambil jam dari field created_at (hanya mendukung database MySQL)
+        $chartData = SaleDetail::whereHas('sale', function ($query) use ($storeId, $today) {
+                $query->where('store_id', $storeId)
+                      ->whereDate('created_at', $today)
+                      ->where('payment_status', 'paid');
+            })
+            ->select(
+                DB::raw('HOUR(created_at) as hour'),
+                DB::raw('SUM(quantity) as total_pcs')
+            )
+            ->groupBy('hour')
+            ->pluck('total_pcs', 'hour')
+            ->toArray();
+
+        $chartLabels = [];
+        $chartValues = [];
+
+        // Asumsi jam operasional toko: Jam 08:00 s/d 22:00
+        // Jika toko Anda buka 24 jam, ubah menjadi for ($i = 0; $i <= 23; $i++)
+        for ($i = 8; $i <= 22; $i++) {
+            $chartLabels[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
+            
+            // Jika di jam tersebut ada penjualan, masukkan datanya. Jika tidak, set 0.
+            $chartValues[] = $chartData[$i] ?? 0;
+        }
+
+        // 9. Lempar semua variabel ke View Laporan
         return view('laporan.index', compact(
             'pemasukanHariIni',
+            'pengeluaranHariIni',
+            'labaHariIni',
             'rataRataTransaksi',
             'jumlahTransaksi',
             'produkTerlaris',
+            'today',
             'chartLabels',
             'chartValues',
-            'top5Minggu',
-            'today',
+            'top5Minggu'
         ));
-    }
-
-    public function export()
-    {
-        $storeId  = auth()->user()->store_id;
-        $filename = 'laporan-penjualan-' . now()->format('Ymd-His') . '.xlsx';
-
-        return Excel::download(new LaporanExport($storeId), $filename);
     }
 }

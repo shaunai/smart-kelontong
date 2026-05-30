@@ -2,8 +2,8 @@
 
     <div class="flex justify-between items-end mb-6">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Laporan Penjualan</h1>
-            <p class="text-gray-500 mt-1 text-sm">Analisis performa toko anda secara real time</p>
+            <h1 class="text-3xl font-bold text-gray-900">Laporan Keuangan & Penjualan</h1>
+            <p class="text-gray-500 mt-1 text-sm">Analisis performa dan arus kas toko Anda secara real-time</p>
         </div>
         <a href="{{ route('laporan.export') }}"
            class="bg-[#1a7175] hover:bg-[#135558] text-white px-5 py-2.5 rounded-md font-medium flex items-center transition-colors shadow-sm text-sm">
@@ -15,8 +15,8 @@
         </a>
     </div>
 
-    {{-- Stat cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {{-- Stat cards: Diubah menjadi grid 3 kolom agar muat 6 kartu dengan rapi --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
             <div class="flex justify-between items-start mb-4">
@@ -28,6 +28,32 @@
             </div>
             <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Pemasukan Hari Ini</p>
             <h3 class="text-2xl font-bold text-gray-900">Rp{{ number_format($pemasukanHariIni, 0, ',', '.') }}</h3>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
+            <div class="flex justify-between items-start mb-4">
+                <div class="p-3 bg-red-50 text-red-500 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Pengeluaran Hari Ini</p>
+            <h3 class="text-2xl font-bold text-red-600">Rp{{ number_format($pengeluaranHariIni, 0, ',', '.') }}</h3>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
+            <div class="flex justify-between items-start mb-4">
+                <div class="p-3 bg-green-50 text-green-500 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Laba Bersih Hari Ini</p>
+            <h3 class="text-2xl font-bold {{ $labaHariIni >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                Rp{{ number_format($labaHariIni, 0, ',', '.') }}
+            </h3>
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
@@ -45,7 +71,7 @@
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50">
             <div class="flex justify-between items-start mb-4">
-                <div class="p-3 bg-blue-50 text-blue-500 rounded-lg">
+                <div class="p-3 bg-teal-50 text-teal-600 rounded-lg">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
                         <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
@@ -76,7 +102,7 @@
 
     </div>
 
-    {{-- Chart + Top 5 --}}
+    {{-- Chart + Top 5 (Tetap sama seperti kode Anda sebelumnya) --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-50 col-span-2">

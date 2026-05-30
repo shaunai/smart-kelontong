@@ -12,10 +12,11 @@ use App\Models\User;
 use App\Notifications\StokKritisNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache; // Wajib ditambahkan untuk fitur limit
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\Snap;
+use Illuminate\Http\JsonResponse;
 
 class TransaksiController extends Controller
 {
@@ -78,37 +79,9 @@ class TransaksiController extends Controller
         return view('transaksi.index', compact('sales', 'receipts', 'products', 'customers'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        $request->validate([
-            'items'              => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.qty'        => 'required|integer|min:1',
-            'payment_method'     => 'nullable|in:cash,qris,transfer',
-            'payment_status'     => 'required|in:paid,debt',
-            'transaction_date'   => 'required|date',
-            'customer_id'        => 'nullable|exists:customers,id',
-            'customer_name'      => 'nullable|string|max:255',
-            'customer_phone'     => 'nullable|string|max:20',
-            'customer_address'   => 'nullable|string',
-        ]);
-
-        if ($request->payment_status === 'debt') {
-            $request->validate([
-                'due_date'        => 'required|date',
-                'is_new_customer' => 'required|boolean',
-            ]);
-
-            if ($request->is_new_customer) {
-                if (!$request->customer_name) {
-                    return response()->json(['message' => 'Nama pelanggan baru wajib diisi untuk hutang.'], 422);
-                }
-            } else {
-                if (!$request->customer_id) {
-                    return response()->json(['message' => 'Pelanggan wajib dipilih untuk hutang.'], 422);
-                }
-            }
-        }
+        $this->validateStoreRequest($request);
 
         $storeId = auth()->user()->store_id;
         $txDate  = Carbon::parse($request->transaction_date);
@@ -155,30 +128,10 @@ class TransaksiController extends Controller
         DB::beginTransaction();
         try {
             // 2. Buat Pelanggan Baru (Jika diceklis)
-            $customerId = $request->customer_id;
-            if ($request->payment_status === 'debt' && $request->is_new_customer) {
-                $newCustomer = Customer::create([
-                    'store_id' => $storeId,
-                    'name'     => $request->customer_name,
-                    'phone'    => $request->customer_phone,
-                    'address'  => $request->customer_address,
-                ]);
-                $customerId = $newCustomer->id;
-            }
+            $customerId = $this->handleCustomer($request, $storeId);
 
             // 3. Buat Invoice
-            $lastSale = Sale::where('store_id', $storeId)
-                ->whereDate('created_at', $txDate->toDateString())
-                ->latest('id')
-                ->first();
-
-            $seq = $lastSale ? (int) substr($lastSale->invoice_number, -4) + 1 : 1;
-            $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
-
-            while (Sale::where('invoice_number', $invoiceNumber)->exists()) {
-                $seq++;
-                $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
-            }
+            $invoiceNumber = $this->generateInvoiceNumber($storeId, $txDate);
 
             $sale = Sale::create([
                 'store_id'       => $storeId,
@@ -191,9 +144,8 @@ class TransaksiController extends Controller
                 'updated_at'     => $txDate
             ]);
 
-            // 4. Simpan Detail Transaksi, Kurangi Stok & Kumpulkan Data Kritis
+            // 4. Simpan Detail Transaksi & Kumpulkan Data Kritis
             $barangKritisTransaksiIni = [];
-            
             foreach ($lines as $line) {
                 SaleDetail::create([
                     'sale_id'       => $sale->id,
@@ -203,50 +155,25 @@ class TransaksiController extends Controller
                     'subtotal'      => $line['subtotal'],
                 ]);
                 
-                // Kurangi stok di database
                 $line['batch']->decrement('stock', $line['quantity']);
-                
-                // Cek sisa stok setelah dikurangi
                 $sisaStok = $line['batch']->stock;
-                $batasKritis = $line['min_stock'] ?? 5;
+                $batasKritis = $line['min_stock'];
 
-                // Jika stok menyentuh kritis, masukkan ke keranjang laporan
                 if ($sisaStok <= $batasKritis) {
                     $barangKritisTransaksiIni[] = (object) [
-                        'name' => $line['product_name'],
+                        'name'              => $line['product_name'],
                         'batches_sum_stock' => $sisaStok,
-                        'unit' => $line['unit'],
-                        'min_stock' => $batasKritis,
-                        'status' => $sisaStok <= 0 ? 'Habis' : 'Menipis',
+                        'unit'              => $line['unit'],
+                        'min_stock'         => $batasKritis,
+                        'status'            => $sisaStok <= 0 ? 'Habis' : 'Menipis',
                     ];
                 }
             }
 
             // 5. Cek Limit dan Kirim Notifikasi Instan
-            if (count($barangKritisTransaksiIni) > 0) {
-                // Cari owner toko
-                $owner = User::where('store_id', $storeId)->where('role', 'owner')->first();
-                
-                if ($owner) {
-                    $hariIni = Carbon::now()->format('Y-m-d');
-                    // Buat kunci cache unik untuk owner ini per hari
-                    $cacheKey = "notif_stok_instan_{$owner->id}_{$hariIni}";
-                    
-                    // Ambil jumlah notifikasi yang sudah dikirim hari ini (default 0)
-                    $jumlahNotifHariIni = Cache::get($cacheKey, 0);
+            $this->processStockNotifications($barangKritisTransaksiIni, $storeId);
 
-                    // Hanya kirim jika belum melebihi limit 3 kali sehari
-                    if ($jumlahNotifHariIni < 3) {
-                        // Ubah array menjadi collection agar sesuai dengan format di StokKritisNotification
-                        $owner->notify(new StokKritisNotification(collect($barangKritisTransaksiIni)));
-                        
-                        // Tambah hitungan cache dan set kedaluwarsa pada pukul 23:59:59 malam ini
-                        Cache::put($cacheKey, $jumlahNotifHariIni + 1, Carbon::now()->endOfDay());
-                    }
-                }
-            }
-
-            // 6. Catat Data Hutang ke Tabel Debts
+            // 6. Catat Data Hutang
             if ($request->payment_status === 'debt') {
                 Debt::create([
                     'store_id'          => $storeId,
@@ -259,7 +186,7 @@ class TransaksiController extends Controller
                 ]);
             }
 
-            // 7. Catat CashFlow (Khusus Tunai Lunas)
+            // 7. Catat CashFlow
             if ($paymentStatus === 'paid' && $paymentMethod === 'cash') {
                 CashFlow::create([
                     'store_id'     => $storeId,
@@ -274,39 +201,8 @@ class TransaksiController extends Controller
             // 8. Konfigurasi Midtrans Snap
             $snapToken = null;
             if ($isMidtrans) {
-                Config::$serverKey = env('MIDTRANS_SERVER_KEY');
-                Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
-                Config::$isSanitized = true;
-                Config::$is3ds = true;
-
-                $enabledPayments = [];
-                if ($paymentMethod === 'qris') {
-                    $enabledPayments = ['other_qris', 'gopay', 'shopeepay']; 
-                } elseif ($paymentMethod === 'transfer') {
-                    $enabledPayments = ['bank_transfer'];
-                }
-
-                $params = [
-                    'transaction_details' => [
-                        'order_id'     => $invoiceNumber,
-                        'gross_amount' => $total,
-                    ],
-                    'customer_details' => [
-                        'first_name' => 'Bapak',
-                        'last_name'  => 'Fernando',
-                        'phone'      => 'UD. Purnama Sakti',
-                    ],
-                ];
-
-                if (!empty($enabledPayments)) {
-                    $params['enabled_payments'] = $enabledPayments;
-                }
-
-                $snapToken = Snap::getSnapToken($params);
-
-                $sale->update([
-                    'midtrans_snap_token' => $snapToken
-                ]);
+                $snapToken = $this->generateMidtransSnapToken($paymentMethod, $total, $invoiceNumber);
+                $sale->update(['midtrans_snap_token' => $snapToken]);
             }
 
             DB::commit();
@@ -346,5 +242,136 @@ class TransaksiController extends Controller
             DB::rollBack();
             return redirect()->route('transaksi.index')->with('error', 'Gagal menghapus transaksi: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Validasi Request Utama
+     */
+    private function validateStoreRequest(Request $request): void
+    {
+        $request->validate([
+            'items'              => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.qty'        => 'required|integer|min:1',
+            'payment_method'     => 'nullable|in:cash,qris,transfer',
+            'payment_status'     => 'required|in:paid,debt',
+            'transaction_date'   => 'required|date',
+            'customer_id'        => 'nullable|exists:customers,id',
+            'customer_name'      => 'nullable|string|max:255',
+            'customer_phone'     => 'nullable|string|max:20',
+            'customer_address'   => 'nullable|string',
+        ]);
+
+        if ($request->payment_status === 'debt') {
+            $request->validate([
+                'due_date'        => 'required|date',
+                'is_new_customer' => 'required|boolean',
+            ]);
+
+            if ($request->is_new_customer && empty($request->customer_name)) {
+                abort(response()->json(['message' => 'Nama pelanggan baru wajib diisi untuk hutang.'], 422));
+            }
+            if (!$request->is_new_customer && empty($request->customer_id)) {
+                abort(response()->json(['message' => 'Pelanggan wajib dipilih untuk hutang.'], 422));
+            }
+        }
+    }
+
+    /**
+     * Menangani logika penciptaan atau pemilihan customer
+     */
+    private function handleCustomer(Request $request, int $storeId): ?int
+    {
+        if ($request->payment_status === 'debt' && $request->is_new_customer) {
+            $newCustomer = Customer::create([
+                'store_id' => $storeId,
+                'name'     => $request->customer_name,
+                'phone'    => $request->customer_phone,
+                'address'  => $request->customer_address,
+            ]);
+            return $newCustomer->id;
+        }
+        return $request->customer_id;
+    }
+
+    /**
+     * Men-generate nomor invoice urut per hari
+     */
+    private function generateInvoiceNumber(int $storeId, Carbon $txDate): string
+    {
+        $lastSale = Sale::where('store_id', $storeId)
+            ->whereDate('created_at', $txDate->toDateString())
+            ->latest('id')
+            ->first();
+
+        $seq = $lastSale ? (int) substr($lastSale->invoice_number, -4) + 1 : 1;
+        $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+
+        while (Sale::where('invoice_number', $invoiceNumber)->exists()) {
+            $seq++;
+            $invoiceNumber = 'INV-' . $txDate->format('Ymd') . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+        }
+
+        return $invoiceNumber;
+    }
+
+    /**
+     * Mengirim notifikasi stok kritis jika melebihi batas limit
+     */
+    private function processStockNotifications(array $barangKritisTransaksiIni, int $storeId): void
+    {
+        if (count($barangKritisTransaksiIni) === 0) {
+            return;
+        }
+
+        $owner = User::where('store_id', $storeId)->where('role', 'owner')->first();
+        if (!$owner) {
+            return;
+        }
+
+        $hariIni = Carbon::now()->format('Y-m-d');
+        $cacheKey = "notif_stok_instan_{$owner->id}_{$hariIni}";
+        $jumlahNotifHariIni = (int) Cache::get($cacheKey, 0);
+
+        if ($jumlahNotifHariIni < 3) {
+            $owner->notify(new StokKritisNotification(collect($barangKritisTransaksiIni)));
+            Cache::put($cacheKey, $jumlahNotifHariIni + 1, Carbon::now()->endOfDay());
+        }
+    }
+
+    /**
+     * Memproses token Midtrans
+     */
+    private function generateMidtransSnapToken(?string $paymentMethod, float $total, string $invoiceNumber): string
+    {
+        Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+        Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+        Config::$isSanitized = true;
+        Config::$is3ds = true;
+
+        $enabledPayments = [];
+        if ($paymentMethod === 'qris') {
+            $enabledPayments = ['other_qris', 'gopay', 'shopeepay']; 
+        } elseif ($paymentMethod === 'transfer') {
+            $enabledPayments = ['bank_transfer'];
+        }
+
+        $params = [
+            'transaction_details' => [
+                'order_id'     => $invoiceNumber,
+                'gross_amount' => $total,
+            ],
+            'customer_details' => [
+                'first_name' => 'Bapak',
+                'last_name'  => 'Fernando',
+                'phone'      => 'UD. Purnama Sakti',
+            ],
+        ];
+
+        if (!empty($enabledPayments)) {
+            $params['enabled_payments'] = $enabledPayments;
+        }
+
+        return Snap::getSnapToken($params);
     }
 }
