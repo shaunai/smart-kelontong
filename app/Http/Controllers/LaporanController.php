@@ -8,6 +8,8 @@ use App\Models\CashFlow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Exports\LaporanExport; // Tambahan: Import class Export yang sudah Anda buat
+use Maatwebsite\Excel\Facades\Excel; // Tambahan: Import facade Excel dari library Maatwebsite
 
 class LaporanController extends Controller
 {
@@ -24,7 +26,6 @@ class LaporanController extends Controller
             ->sum('total_price');
 
         // 3. Hitung Pengeluaran Hari Ini (Dari tabel CashFlow yang tipenya 'out' / keluar)
-        // Sesuaikan 'out' dengan enum/value di database Anda
         $pengeluaranHariIni = CashFlow::where('store_id', $storeId)
             ->whereDate('created_at', $today)
             ->where('type', 'out') 
@@ -50,7 +51,7 @@ class LaporanController extends Controller
             ->select('product_id', DB::raw('SUM(quantity) as total_qty'))
             ->groupBy('product_id')
             ->orderByDesc('total_qty')
-            ->with('product') // Mengambil data relasi tabel produk
+            ->with('product')
             ->first();
 
         // 7. Ambil 5 Produk Terlaris MINGGU INI (7 Hari Terakhir)
@@ -68,7 +69,6 @@ class LaporanController extends Controller
             ->get();
 
         // 8. Siapkan Data untuk Chart.js (Grafik Penjualan per Jam - Format Pcs)
-        // Mengambil jam dari field created_at (hanya mendukung database MySQL)
         $chartData = SaleDetail::whereHas('sale', function ($query) use ($storeId, $today) {
                 $query->where('store_id', $storeId)
                       ->whereDate('created_at', $today)
@@ -85,12 +85,8 @@ class LaporanController extends Controller
         $chartLabels = [];
         $chartValues = [];
 
-        // Asumsi jam operasional toko: Jam 08:00 s/d 22:00
-        // Jika toko Anda buka 24 jam, ubah menjadi for ($i = 0; $i <= 23; $i++)
         for ($i = 8; $i <= 22; $i++) {
             $chartLabels[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
-            
-            // Jika di jam tersebut ada penjualan, masukkan datanya. Jika tidak, set 0.
             $chartValues[] = $chartData[$i] ?? 0;
         }
 
@@ -107,5 +103,20 @@ class LaporanController extends Controller
             'chartValues',
             'top5Minggu'
         ));
+    }
+
+    // UPDATE: Method export yang telah diintegrasikan dengan LaporanExport Anda
+    public function export()
+    {
+        $storeId = auth()->user()->store_id;
+        
+        // Ambil nama toko (Sesuaikan dengan relasi/database Anda. Contoh: auth()->user()->store->name)
+        // Jika Anda belum memiliki relasi, ganti dengan nama tabel/query manual Anda.
+        $storeName = auth()->user()->store->name ?? 'Toko Saya'; 
+
+        $fileName = 'laporan-penjualan-' . Carbon::now()->format('Y-m-d') . '.xlsx';
+
+        // Kirimkan $storeName sebagai parameter kedua
+        return Excel::download(new LaporanExport($storeId, $storeName), $fileName);
     }
 }

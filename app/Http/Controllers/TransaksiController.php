@@ -88,16 +88,21 @@ class TransaksiController extends Controller
         $total   = 0;
         $lines   = [];
 
-        // 1. Kalkulasi Stok & Harga
+        // 1. Kalkulasi Stok & Harga (Validasi Limit Dihapus agar bisa sampai 0 atau negatif)
         foreach ($request->items as $item) {
             $product = Product::with('batches')->findOrFail($item['product_id']);
-            $batch   = $product->batches()->where('stock', '>', 0)->orderByDesc('id')->first();
+            
+            // Ambil batch dengan metode FIFO (First In First Out)
+            $batch = $product->batches()->where('stock', '>', 0)->orderBy('id', 'asc')->first();
 
+            // Jika semua batch sudah habis/0, ambil batch terakhir sebagai tempat pengurangan (bisa minus)
             if (!$batch) {
-                return response()->json(['message' => "Stok {$product->name} habis."], 422);
+                $batch = $product->batches()->orderByDesc('id')->first();
             }
-            if ($batch->stock < $item['qty']) {
-                return response()->json(['message' => "Stok {$product->name} tidak cukup (tersedia: {$batch->stock})."], 422);
+
+            // Jika produk belum pernah diisi stoknya sama sekali
+            if (!$batch) {
+                return response()->json(['message' => "Data stok untuk {$product->name} belum ada sama sekali di database."], 422);
             }
 
             $price    = (float) $batch->selling_price;
@@ -113,6 +118,7 @@ class TransaksiController extends Controller
                 'subtotal'      => $subtotal,
                 'batch'         => $batch,
                 'min_stock'     => $product->min_stock ?? 5,
+                'product_model' => $product // Disimpan untuk menghitung total stok nanti
             ];
         }
 
@@ -144,7 +150,7 @@ class TransaksiController extends Controller
                 'updated_at'     => $txDate
             ]);
 
-            // 4. Simpan Detail Transaksi & Kumpulkan Data Kritis
+            // 4. Simpan Detail Transaksi & Pengurangan Stok
             $barangKritisTransaksiIni = [];
             foreach ($lines as $line) {
                 SaleDetail::create([
@@ -155,10 +161,14 @@ class TransaksiController extends Controller
                     'subtotal'      => $line['subtotal'],
                 ]);
                 
+                // Kurangi stok (Sistem mengizinkan nilai stok menyentuh 0 atau bahkan negatif)
                 $line['batch']->decrement('stock', $line['quantity']);
-                $sisaStok = $line['batch']->stock;
+                
+                // Hitung TOTAL sisa stok dari produk ini (termasuk semua batch jika ada)
+                $sisaStok = $line['product_model']->batches()->sum('stock');
                 $batasKritis = $line['min_stock'];
 
+                // Jika setelah transaksi total stok menyentuh batas kritis atau habis
                 if ($sisaStok <= $batasKritis) {
                     $barangKritisTransaksiIni[] = (object) [
                         'name'              => $line['product_name'],
@@ -170,7 +180,7 @@ class TransaksiController extends Controller
                 }
             }
 
-            // 5. Cek Limit dan Kirim Notifikasi Instan
+            // 5. Cek Limit dan Kirim Notifikasi Instan (Data akurat sesuai skema sebelumnya)
             $this->processStockNotifications($barangKritisTransaksiIni, $storeId);
 
             // 6. Catat Data Hutang

@@ -7,32 +7,61 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize; // Tambahan 1: Untuk lebar kolom otomatis
-use Maatwebsite\Excel\Concerns\WithColumnFormatting; // Tambahan 2: Untuk format Rupiah
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-// Tambahkan ShouldAutoSize dan WithColumnFormatting pada implements
 class LaporanExport implements FromCollection, WithHeadings, WithTitle, WithStyles, ShouldAutoSize, WithColumnFormatting
 {
     private int $storeId;
+    private string $storeName;
 
-    public function __construct(int $storeId)
+    // Tambahkan parameter $storeName di constructor
+    public function __construct(int $storeId, string $storeName)
     {
         $this->storeId = $storeId;
+        $this->storeName = $storeName;
     }
 
     public function collection()
     {
-        // Logika Anda tetap dipertahankan karena sudah sangat bagus
-        return Sale::where('store_id', $this->storeId)
+        $sales = Sale::where('store_id', $this->storeId)
             ->with(['details.product', 'user'])
             ->latest()
-            ->get()
-            ->flatMap(function ($sale) {
-                return $sale->details->map(fn($d) => [
+            ->get();
+
+        $rows = [];
+        $totalPendapatanLunas = 0;
+        $totalHutang = 0;
+        $grandTotal = 0;
+
+        foreach ($sales as $sale) {
+            foreach ($sale->details as $d) {
+                $statusText = match($sale->payment_status) {
+                    'paid'    => 'Lunas',
+                    'debt'    => 'Hutang',
+                    'pending' => 'Pending',
+                    default   => $sale->payment_status,
+                };
+
+                $metodeText = match($sale->payment_method) {
+                    'cash'     => 'Tunai',
+                    'qris'     => 'QRIS',
+                    'transfer' => 'Transfer Bank',
+                    default    => $sale->payment_method,
+                };
+
+                if ($sale->payment_status === 'paid') {
+                    $totalPendapatanLunas += $d->subtotal;
+                } elseif ($sale->payment_status === 'debt') {
+                    $totalHutang += $d->subtotal;
+                }
+                $grandTotal += $d->subtotal;
+
+                $rows[] = [
                     $sale->invoice_number,
                     $sale->created_at->format('d/m/Y H:i'),
                     $sale->user->name,
@@ -40,34 +69,33 @@ class LaporanExport implements FromCollection, WithHeadings, WithTitle, WithStyl
                     $d->quantity,
                     $d->price_at_sale,
                     $d->subtotal,
-                    match($sale->payment_method) {
-                        'cash'     => 'Tunai',
-                        'qris'     => 'QRIS',
-                        'transfer' => 'Transfer Bank',
-                        default    => $sale->payment_method,
-                    },
-                    match($sale->payment_status) {
-                        'paid'    => 'Lunas',
-                        'debt'    => 'Hutang',
-                        'pending' => 'Pending',
-                        default   => $sale->payment_status,
-                    },
-                ]);
-            });
+                    $metodeText,
+                    $statusText,
+                ];
+            }
+        }
+
+        // --- BARIS REKAPITULASI DAN FOOTER ---
+        $rows[] = ['', '', '', '', '', '', '', '', '']; // Baris kosong pemisah
+        $rows[] = ['', '', '', '', '', 'Total Pemasukan (Lunas):', $totalPendapatanLunas, '', ''];
+        $rows[] = ['', '', '', '', '', 'Total Kasbon (Hutang):', $totalHutang, '', ''];
+        $rows[] = ['', '', '', '', '', 'Grand Total Transaksi:', $grandTotal, '', ''];
+        $rows[] = ['', '', '', '', '', '', '', '', '']; // Baris kosong pemisah
+        $rows[] = ['Terima kasih atas kerja keras Anda hari ini!', '', '', '', '', '', '', '', '']; // Baris Terima Kasih
+
+        return collect($rows);
     }
 
     public function headings(): array
     {
+        // Menggunakan array multi-dimensi agar Header Tabel berada di Baris ke-3
         return [
-            'No. Invoice',  // Kolom A
-            'Tanggal',      // Kolom B
-            'Kasir',        // Kolom C
-            'Produk',       // Kolom D
-            'Qty',          // Kolom E
-            'Harga Satuan', // Kolom F
-            'Subtotal',     // Kolom G
-            'Metode Bayar', // Kolom H
-            'Status',       // Kolom I
+            ['LAPORAN PENJUALAN - ' . strtoupper($this->storeName)], // Baris 1: Judul Laporan
+            [''], // Baris 2: Kosong
+            [     // Baris 3: Header Kolom
+                'No. Invoice', 'Tanggal', 'Kasir', 'Produk', 'Qty', 
+                'Harga Satuan', 'Subtotal', 'Metode Bayar', 'Status'
+            ]
         ];
     }
 
@@ -76,29 +104,24 @@ class LaporanExport implements FromCollection, WithHeadings, WithTitle, WithStyl
         return 'Laporan Penjualan';
     }
 
-    // FUNGSI BARU: Mengubah format angka menjadi Rupiah di Excel
     public function columnFormats(): array
     {
         return [
-            'F' => '"Rp"#,##0', // Format Harga Satuan
-            'G' => '"Rp"#,##0', // Format Subtotal
+            'F' => '"Rp"#,##0', 
+            'G' => '"Rp"#,##0', 
         ];
     }
 
-    // FUNGSI DIUPDATE: Membuat desain tabel menjadi lebih rapi
     public function styles(Worksheet $sheet)
     {
         $highestRow = $sheet->getHighestRow();
 
-        // 1. Styling untuk Baris Judul (Header - Baris 1)
-        $sheet->getStyle('A1:I1')->applyFromArray([
+        // 1. --- STYLING JUDUL (Baris 1) ---
+        $sheet->mergeCells('A1:I1'); // Gabungkan dari kolom A sampai I
+        $sheet->getStyle('A1')->applyFromArray([
             'font' => [
                 'bold' => true,
-                'color' => ['argb' => 'FFFFFFFF'], // Teks Putih
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['argb' => 'FF1A7175'], // Warna hijau UI Anda
+                'size' => 16,
             ],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_CENTER,
@@ -106,20 +129,72 @@ class LaporanExport implements FromCollection, WithHeadings, WithTitle, WithStyl
             ],
         ]);
 
-        // 2. Memberikan Border (Garis Tabel) dari A1 sampai I-Terakhir
-        $sheet->getStyle('A1:I' . $highestRow)->applyFromArray([
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                    'color' => ['argb' => 'FFCCCCCC'], // Garis abu-abu agar elegan
-                ],
+        // 2. --- STYLING HEADER TABEL (Baris 3) ---
+        $sheet->getStyle('A3:I3')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'color' => ['argb' => 'FFFFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF1A7175'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ]);
 
-        // 3. Merapikan Posisi Teks (Rata Tengah) untuk beberapa kolom
-        $sheet->getStyle('A2:B' . $highestRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // Invoice & Tanggal
-        $sheet->getStyle('E2:E' . $highestRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // Qty
-        $sheet->getStyle('H2:I' . $highestRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // Metode & Status
+        // 3. --- STYLING BORDER DATA UTAMA ---
+        // Menghitung baris terakhir dari data produk (sebelum baris kosong dan total)
+        $lastDataRow = $highestRow - 6; 
+        
+        if ($lastDataRow >= 3) {
+            $sheet->getStyle('A3:I' . $lastDataRow)->applyFromArray([
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_THIN,
+                        'color' => ['argb' => 'FF000000'], // Border Hitam tegas
+                    ],
+                ],
+            ]);
+            
+            // Rata Tengah untuk kolom data tertentu (Dimulai dari baris 4 karena baris 3 adalah header)
+            $sheet->getStyle('A4:B' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('E4:E' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('H4:I' . $lastDataRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+
+        // 4. --- STYLING KOTAK TOTAL ---
+        $totalStartRow = $highestRow - 4;
+        $totalEndRow = $highestRow - 2;
+
+        $sheet->getStyle('F' . $totalStartRow . ':G' . $totalEndRow)->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 11,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['argb' => 'FF000000'], // Border kotak khusus untuk total
+                ],
+            ],
+        ]);
+        $sheet->getStyle('F' . $totalStartRow . ':F' . $totalEndRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        // 5. --- STYLING FOOTER TERIMA KASIH (Baris Terakhir) ---
+        $sheet->mergeCells('A' . $highestRow . ':I' . $highestRow);
+        $sheet->getStyle('A' . $highestRow)->applyFromArray([
+            'font' => [
+                'italic' => true,
+                'bold' => true,
+                'size' => 12,
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+            ],
+        ]);
 
         return $sheet;
     }

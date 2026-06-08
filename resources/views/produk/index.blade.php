@@ -10,13 +10,14 @@
         showDeleteModal: false,
         editMode: false,
         deleteId: null,
+        deleteConfirmText: '', /* Tambahan State untuk Constructive Friction */
         categoryCustom: false,
         form: {
             id: null,
             sku: '',
             category: '',
             name: '',
-            unit: 'pcs',
+            unit: 'Pcs', /* DIPERBAIKI: Menyesuaikan case dengan dropdown */
             conversion_qty: 1,
             min_stock: 5,
             parent_id: ''
@@ -25,7 +26,7 @@
         openCreate() {
             this.editMode = false;
             this.categoryCustom = false;
-            this.form = { id: null, sku: '', category: '', name: '', unit: 'pcs', conversion_qty: 1, min_stock: 5, parent_id: '' };
+            this.form = { id: null, sku: '', category: '', name: '', unit: 'Pcs', conversion_qty: 1, min_stock: 5, parent_id: '' }; /* DIPERBAIKI */
             this.showModal = true;
         },
         openEdit(product) {
@@ -36,6 +37,7 @@
         },
         openDelete(id) {
             this.deleteId = id;
+            this.deleteConfirmText = ''; /* Reset teks saat modal hapus dibuka */
             this.showDeleteModal = true;
         },
         onCategorySelect(val) {
@@ -55,7 +57,7 @@
             form.sku = {{ Js::from(old('sku', '')) }};
             form.category = {{ Js::from(old('category', '')) }};
             form.name = {{ Js::from(old('name', '')) }};
-            form.unit = {{ Js::from(old('unit', 'pcs')) }};
+            form.unit = {{ Js::from(old('unit', 'Pcs')) }}; /* DIPERBAIKI */
             form.conversion_qty = {{ old('conversion_qty', 1) }};
             form.min_stock = {{ old('min_stock', 5) }};
             form.parent_id = {{ Js::from(old('parent_id', '')) }};
@@ -226,7 +228,7 @@
 
     {{-- Create / Edit Modal --}}
     <div x-show="showModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" style="display: none;">
-        <div class="absolute inset-0 bg-black/50" @click="showModal = false"></div>
+        <div class="absolute inset-0 bg-black/50"></div>
         <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
 
             <div class="flex items-center justify-between px-6 py-4 border-b">
@@ -317,8 +319,26 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Satuan <span class="text-red-400">*</span>
                             </label>
-                            <input type="text" name="unit" x-model="form.unit" required placeholder="pcs, kardus, lusin..."
+                            <select name="unit" x-model="form.unit" required
                                 class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('unit') border-red-400 @else border-gray-200 @enderror">
+                                <optgroup label="Satuan Ecer / Terkecil">
+                                    <option value="Pcs">Pcs (Pieces)</option>
+                                    <option value="Botol">Botol</option>
+                                    <option value="Bungkus">Bungkus</option>
+                                    <option value="Sachet">Sachet</option>
+                                    <option value="Kg">Kilogram (Kg)</option>
+                                    <option value="Gram">Gram (g)</option>
+                                    <option value="Liter">Liter (L)</option>
+                                </optgroup>
+                                <optgroup label="Satuan Besar / Grosir">
+                                    <option value="Dus">Dus / Karton</option>
+                                    <option value="Karung">Karung</option>
+                                    <option value="Pack">Pack</option>
+                                    <option value="Renceng">Renceng</option>
+                                    <option value="Lusin">Lusin</option>
+                                    <option value="Slop">Slop</option>
+                                </optgroup>
+                            </select>
                             @error('unit') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
                         <div>
@@ -329,6 +349,18 @@
                                 class="w-full rounded-md border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175] @error('conversion_qty') border-red-400 @else border-gray-200 @enderror">
                             @error('conversion_qty') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
+                    </div>
+
+                    <div class="mt-2 rounded-md bg-blue-50 p-3 border border-blue-100">
+                        <p class="text-xs text-blue-800">
+                            <strong>Cara Kerja Konversi:</strong><br>
+                            Jika ini adalah produk grosir (induk), biarkan Konversi Qty = 1.<br>
+                            Jika ini adalah produk eceran (Varian Dari kemasan besar), atur jumlah pecahannya. 
+                            <br><br>
+                            <span class="inline-block px-2 py-1 bg-white rounded font-mono text-[11px] border border-blue-200 mt-1">
+                                Rumus saat dibongkar: 1 Kemasan Besar = <strong x-text="form.conversion_qty" class="text-blue-600"></strong> <span x-text="form.unit"></span>
+                            </span>
+                        </p>
                     </div>
 
                     {{-- Min Stok --}}
@@ -371,25 +403,37 @@
         </div>
     </div>
 
-    {{-- Delete Confirmation Modal --}}
+    {{-- Delete Confirmation Modal dengan Constructive Friction --}}
     <div x-show="showDeleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" @click="showDeleteModal = false"></div>
+        <div class="absolute inset-0 bg-black/50"></div>
         <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 text-center">
             <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
                 <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             </div>
             <h3 class="mb-2 text-lg font-bold text-gray-900">Hapus Produk?</h3>
-            <p class="mb-6 text-sm text-gray-500">Produk yang dihapus tidak dapat dikembalikan. Semua data batch stok terkait juga akan ikut terhapus.</p>
+            <p class="mb-5 text-sm text-gray-500">Produk yang dihapus tidak dapat dikembalikan. Semua data batch stok terkait juga akan ikut terhapus.</p>
+            
             <form method="POST" :action="`/produk/${deleteId}`">
                 @csrf
                 @method('DELETE')
+                
+                {{-- Implementasi Constructive Friction --}}
+                <div class="mb-6 text-left">
+                    <label class="block text-xs font-medium text-gray-700 mb-1.5">Ketik <strong>HAPUS</strong> untuk mengonfirmasi:</label>
+                    <input type="text" x-model="deleteConfirmText" 
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-center uppercase tracking-widest" 
+                        placeholder="HAPUS">
+                </div>
+
                 <div class="flex gap-3">
                     <button type="button" @click="showDeleteModal = false"
                         class="flex-1 rounded-md border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
                         Batal
                     </button>
                     <button type="submit"
-                        class="flex-1 rounded-md bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors">
+                        :disabled="deleteConfirmText !== 'HAPUS'"
+                        :class="deleteConfirmText === 'HAPUS' ? 'bg-red-500 hover:bg-red-600 text-white shadow-sm' : 'bg-red-100 text-red-300 cursor-not-allowed'"
+                        class="flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all">
                         Ya, Hapus
                     </button>
                 </div>

@@ -43,6 +43,12 @@
             <button onclick="this.parentElement.remove()" class="ml-4 text-lg leading-none text-green-600 hover:text-green-800">&times;</button>
         </div>
     @endif
+    @if (session('error'))
+        <div class="mb-5 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-800">
+            <span>{{ session('error') }}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-lg leading-none text-red-600 hover:text-red-800">&times;</button>
+        </div>
+    @endif
 
     {{-- Header --}}
     <div class="mb-6 flex items-end justify-between">
@@ -78,7 +84,9 @@
             <div>
                 <div class="mb-1 flex items-center">
                     <div class="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100 text-yellow-600">
-                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42 urge-transparent border-none font-medium p-0 m-0 cursor-pointer text-sm">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
                     </div>
                     <p class="text-xs font-bold uppercase tracking-wider text-gray-500">Stok Menipis</p>
                 </div>
@@ -101,21 +109,43 @@
         </div>
     </div>
 
+    {{-- BARU: TAB FILTER PEMISAH SATUAN INDUK DAN ECERAN --}}
+    <div class="flex gap-2 mb-4 border-b border-gray-200 pb-px">
+        <a href="{{ route('stok.index', request()->except(['type', 'page'])) }}"
+            class="px-5 py-2.5 border-b-2 text-sm font-semibold transition-all
+                {{ !request('type') ? 'border-[#1a7175] text-[#1a7175]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            📦 Semua Tipe Stok
+        </a>
+        <a href="{{ route('stok.index', array_merge(request()->except('page'), ['type' => 'grosir'])) }}"
+            class="px-5 py-2.5 border-b-2 text-sm font-semibold transition-all
+                {{ request('type') === 'grosir' ? 'border-[#1a7175] text-[#1a7175]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            🏢 Satuan Induk / Grosir (Dus/Karton/Karung)
+        </a>
+        <a href="{{ route('stok.index', array_merge(request()->except('page'), ['type' => 'eceran'])) }}"
+            class="px-5 py-2.5 border-b-2 text-sm font-semibold transition-all
+                {{ request('type') === 'eceran' ? 'border-[#1a7175] text-[#1a7175]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+            🏪 Satuan Eceran (Pcs/Botol/Bungkus)
+        </a>
+    </div>
+
     {{-- Search --}}
     <form method="GET" action="{{ route('stok.index') }}" class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        @if(request('type'))
+            <input type="hidden" name="type" value="{{ request('type') }}">
+        @endif
         <input
             type="text"
             name="search"
             value="{{ request('search') }}"
-            placeholder="Cari nama produk..."
+            placeholder="Cari nama produk di kategori ini..."
             class="flex-1 rounded-md border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a7175]"
         >
         <button type="submit" class="rounded-md bg-[#1a7175] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#145a5e]">
             Cari
         </button>
-        @if (request('search'))
+        @if (request('search') || request('type'))
             <a href="{{ route('stok.index') }}" class="rounded-md border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50">
-                Reset
+                Reset Filter
             </a>
         @endif
     </form>
@@ -156,7 +186,14 @@
                         @endphp
                         <tr class="border-b border-gray-100 transition-colors hover:bg-gray-50">
                             <td class="px-6 py-4 text-gray-400">{{ $products->firstItem() + $loop->index }}</td>
-                            <td class="whitespace-nowrap px-6 py-4 font-medium text-gray-900">{{ $product->name }}</td>
+                            <td class="whitespace-nowrap px-6 py-4 font-medium text-gray-900">
+                                {{ $product->name }}
+                                @if($product->parent_id)
+                                    <span class="ml-2 inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-700/10">Eceran</span>
+                                @else
+                                    <span class="ml-2 inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">Grosir/Induk</span>
+                                @endif
+                            </td>
                             <td class="px-6 py-4">
                                 <span class="rounded px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
                                     {{ $product->category ?? 'Lainnya' }}
@@ -172,13 +209,25 @@
                                 </span>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
-                                <button
-                                    @click="openCreate({{ $product->id }})"
-                                    class="flex items-center gap-1.5 rounded-md bg-[#1a7175] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#145a5e]"
-                                >
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                                    Tambah Stok
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        @click="openCreate({{ $product->id }})"
+                                        class="flex items-center gap-1.5 rounded-md bg-[#1a7175] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#145a5e]"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                        Tambah Stok
+                                    </button>
+
+                                    @if($product->parent_id)
+                                        <form method="POST" action="{{ route('stok.bongkar', $product->id) }}" onsubmit="return confirm('Apakah Anda yakin ingin membongkar 1 kemasan utuh (Dus/Pack) menjadi stok eceran untuk produk ini?');">
+                                            @csrf
+                                            <button type="submit" title="Bongkar kemasan utuh" class="flex items-center gap-1.5 rounded-md bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-700 shadow-sm">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                                Bongkar
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -186,11 +235,7 @@
                             <td colspan="7" class="py-16 text-center text-gray-400">
                                 <svg class="mx-auto mb-3 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                                 <p class="text-sm">
-                                    @if (request('search'))
-                                        Tidak ada produk yang cocok dengan "{{ request('search') }}"
-                                    @else
-                                        Belum ada data produk. Tambahkan produk terlebih dahulu.
-                                    @endif
+                                    Tidak ada data stok produk ditemukan untuk kategori ini.
                                 </p>
                             </td>
                         </tr>
@@ -301,7 +346,7 @@
 
                 <div class="flex justify-end gap-3 rounded-b-xl border-t bg-gray-50 px-6 py-4">
                     <button type="button" @click="showModal = false"
-                        class="rounded-md border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">
+                        class="rounded-md border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
                         Batal
                     </button>
                     <button type="submit"
