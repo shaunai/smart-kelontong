@@ -53,8 +53,8 @@ Untuk menjalankan proyek web aplikasi ini di komputer lokal Anda, ikuti langkah-
 1. **Clone Repository**
    Buka terminal atau command prompt, lalu clone repository ini:
    ```bash
-   git clone [https://github.com/username-anda/nama-repo-anda.git](https://github.com/username-anda/nama-repo-anda.git)
-   cd nama-repo-anda
+   git clone https://github.com/shaunai/smart-kelontong.git
+   cd smart-kelontong
    ```
 
 
